@@ -10,8 +10,10 @@ import ConsistencyCalendar from "../components/ConsistencyCalendar.jsx";
 import WeekdayBarChart from "../components/WeekdayBarChart.jsx";
 import MomentumChart from "../components/MomentumChart.jsx";
 import MonthlyBarChart from "../components/MonthlyBarChart.jsx";
+import WaterIntakeChart from "../components/WaterIntakeChart.jsx";
 import RecordsCard from "../components/RecordsCard.jsx";
 import ProgressRing from "../components/ProgressRing.jsx";
+import { isWaterHabit } from "../utils/constants.js";
 import { prettyDate, toKey } from "../utils/dateHelpers.js";
 import {
   canGoNext,
@@ -40,6 +42,7 @@ export default function HabitDetail() {
   const [formOpen, setFormOpen] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [savingKey, setSavingKey] = useState(null);
+  const [waterHistory, setWaterHistory] = useState(null);
 
   useEffect(() => {
     let alive = true;
@@ -50,6 +53,10 @@ export default function HabitDetail() {
       try {
         const res = await api.get(`/logs/stats/${habitId}`);
         if (alive) setData(res.data);
+        if (isWaterHabit(res.data.habit)) {
+          const wh = await api.get(`/water/history/${habitId}?days=30`);
+          if (alive) setWaterHistory(wh.data);
+        }
       } catch {
         if (alive) setNotFound(true);
       } finally {
@@ -326,6 +333,38 @@ export default function HabitDetail() {
           savingKey={savingKey}
         />
       </div>
+
+      {waterHistory && (
+        <div>
+          <div className="text-sm font-medium mb-2">Water</div>
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-4">
+            {(() => {
+              const days = waterHistory.days;
+              const total = days.reduce((s, d) => s + d.total, 0);
+              const met = days.filter((d) => d.completed).length;
+              const best = Math.max(0, ...days.map((d) => d.total));
+              const avg = Math.round(total / days.length);
+              const cells = [
+                { label: "Daily average", value: `${avg} ml` },
+                { label: "Goal reached", value: `${met}/${days.length}` },
+                { label: "Best day", value: `${best} ml` },
+                { label: "30-day total", value: `${(total / 1000).toFixed(1)} L` },
+              ];
+              return cells.map((c) => (
+                <div key={c.label} className="card p-4">
+                  <div className="text-xs text-muted font-medium">{c.label}</div>
+                  <div className="text-2xl font-semibold mt-1 tabular-nums">{c.value}</div>
+                </div>
+              ));
+            })()}
+          </div>
+          <WaterIntakeChart
+            data={waterHistory.days}
+            goal={waterHistory.goal}
+            color={habit.color}
+          />
+        </div>
+      )}
 
       <div>
         <div className="text-sm font-medium mb-2">Trends</div>
