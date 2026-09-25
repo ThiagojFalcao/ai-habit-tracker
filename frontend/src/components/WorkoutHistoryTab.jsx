@@ -13,6 +13,8 @@ const dayLabel = (date) => {
 
 export default function WorkoutHistoryTab() {
   const [logs, setLogs] = useState([]);
+  const [habits, setHabits] = useState([]);
+  const [habitId, setHabitId] = useState("");
   const [loading, setLoading] = useState(true);
   const [openId, setOpenId] = useState(null);
   const [details, setDetails] = useState({});
@@ -21,7 +23,24 @@ export default function WorkoutHistoryTab() {
     let alive = true;
     (async () => {
       try {
-        const res = await api.get("/workouts/logs", { params: { limit: 50 } });
+        const res = await api.get("/habits");
+        if (alive) setHabits(res.data.filter((h) => h.tracksWorkouts));
+      } catch {
+        if (alive) setHabits([]);
+      }
+    })();
+    return () => {
+      alive = false;
+    };
+  }, []);
+
+  useEffect(() => {
+    let alive = true;
+    (async () => {
+      try {
+        const res = await api.get("/workouts/logs", {
+          params: habitId ? { limit: 50, habitId } : { limit: 50 },
+        });
         if (alive) setLogs(res.data);
       } finally {
         if (alive) setLoading(false);
@@ -30,7 +49,13 @@ export default function WorkoutHistoryTab() {
     return () => {
       alive = false;
     };
-  }, []);
+  }, [habitId]);
+
+  const changeHabit = (value) => {
+    setOpenId(null);
+    setDetails({});
+    setHabitId(value);
+  };
 
   const toggle = async (log) => {
     if (openId === log._id) {
@@ -50,20 +75,32 @@ export default function WorkoutHistoryTab() {
 
   if (loading) return <LoadingSpinner full />;
 
-  if (!logs.length) {
-    return (
-      <div className="card p-8 text-center">
-        <div className="text-5xl mb-3">🏋️</div>
-        <div className="font-medium">Nenhum treino concluído ainda</div>
-        <div className="text-sm text-muted mt-1">
-          Inicie um treino na aba "Treinos" que ele aparece aqui.
-        </div>
-      </div>
-    );
-  }
-
   return (
     <div className="space-y-3 max-w-3xl">
+      <select
+        className="input"
+        value={habitId}
+        onChange={(e) => changeHabit(e.target.value)}
+        aria-label="Filtrar por hábito"
+      >
+        <option value="">Todos os hábitos</option>
+        {habits.map((h) => (
+          <option key={h._id} value={h._id}>
+            {h.icon} {h.name}
+          </option>
+        ))}
+      </select>
+
+      {!logs.length && (
+        <div className="card p-8 text-center">
+          <div className="text-5xl mb-3">🏋️</div>
+          <div className="font-medium">Nenhum treino concluído ainda</div>
+          <div className="text-sm text-muted mt-1">
+            Inicie um treino na aba "Treinos" que ele aparece aqui.
+          </div>
+        </div>
+      )}
+
       {logs.map((log, index) => {
         const showDate = index === 0 || log.date !== logs[index - 1].date;
         const open = openId === log._id;
