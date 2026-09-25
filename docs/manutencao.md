@@ -75,7 +75,7 @@ git add . ; git commit -m "feat: descreva a mudanca"
 | `npm test` (backend) | 75 testes: models, auth, habits, logs, água (endpoints, reconciliação, migração), IA (degradação), errorHandler, seed | Docker no ar (usa o banco `ai-habit-tracker-test` no mesmo Mongo da 27018) |
 | `npm run smoke` | Contrato completo contra o servidor real (32 checks, inclui água e IA) | Servidor rodando + Docker |
 | `node scripts/migrate-water.js` (backend) | Backfill único: cria `WaterEntry` de meta para logs antigos de hábitos 💧 (`{ entriesCreated: n }`; idempotente) | Docker no ar (usa o banco de dev) |
-| E2E manual | Registrar/logar, check-off com confete, heatmap, Insights, Stats, chat | Navegador em `localhost:5173` |
+| E2E manual | Registrar/logar, check-off com confete, heatmap, Insights, Stats, chat · água: card no Dashboard (presets, Custom, undo, "Goal reached"), calendário marcando/desmarcando dia 💧, seção Water no detalhe, meta editável no form | Navegador em `localhost:5173` |
 
 O contrato da API está pinado em `backend/tests/` + na spec (§4.3). O mock antigo do frontend foi removido — se precisar conferir o contrato original, veja `docs/design/spec.md`.
 
@@ -162,6 +162,12 @@ Da revisão final do código (nenhuma bloqueia o uso):
 
 1. Smoke deixa usuários `smoke_*` no banco de dev (apagar depois)
 2. Traduzir a interface inteira para PT-BR (só o chat de análise foi traduzido até agora)
+
+**Da feature de água** (review final de 2026-09-25 — nenhum bloqueia o uso):
+
+3. API: `{waterGoal: null}` é aceito e persistido (matemática segura pelo clamp); corrida entre `findOne` e `findOneAndUpdate` no `PUT /habits/:id` pode responder `200 null`; reconcile falho após o PUT deixa o dia defasado até a próxima escrita; `/water/history` aceita hábito não-💧 (série zerada); `?days=0` cai no default 30; o claim do calendário (`POST /logs` em 💧) não é atômico em falha do `WaterEntry.create` e o fallback E11000 pode retornar `null` sob interleave `DELETE /logs` × `POST /water` (aceito/deferido: sem transações no projeto).
+4. Frontend: `waterToday` não é limpo ao excluir/arquivar hábito (chave órfã, inofensiva); Custom e menu sem `aria-label`/`aria-expanded`; Custom inválido é no-op silencioso; o card atualiza depois da resposta (spec pedia update otimista — reavaliar se a latência incomodar).
+5. Testes: migração cobre só a meta default; seed não pina os 3 parciais nem o invariante "parcial sem log"; regex do teste de IA frouxa (`/4200ml/`); `isWaterHabit`/`waterGoal` sem unit test direto; `assert.ok(token)` morto no teste de migração.
 
 **Concluídos em 2026-09-25** (itens 1–6 da lista antiga):
 
