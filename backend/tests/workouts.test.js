@@ -431,3 +431,86 @@ test("DELETE /workouts/logs/:id discards drafts without unmarking the habit", as
   const logs = await request(app).get("/api/logs/today").set(auth(token));
   assert.equal(logs.body.length, 1);
 });
+
+const completeLogFor = async (token, habit, workout, exerciseId, sets, date) => {
+  const draft = await startDraft(token, workout._id);
+  await request(app)
+    .put(`/api/workouts/logs/${draft._id}`)
+    .set(auth(token))
+    .send({ date, exercises: [{ exerciseId, sets }] });
+  const res = await request(app).post(`/api/workouts/logs/${draft._id}/complete`).set(auth(token));
+  return res.body.log;
+};
+
+test("GET /workouts/logs returns summaries with volume, duration and filters", async () => {
+  const { token } = await registerUser();
+  const habit = await createHabit(token);
+  const exercise = await createExercise(token);
+  const workout = (await createWorkout(token, habit._id, [{ exerciseId: exercise._id, sets: 3, reps: 8 }])).body;
+  const yesterday = toDateKey(subDays(new Date(), 1));
+  await completeLogFor(token, habit, workout, exercise._id, [
+    { weight: 40, reps: 8, done: true },
+    { weight: 40, reps: 8, done: true },
+    { weight: 40, reps: 8, done: false },
+  ], yesterday);
+
+  const all = await request(app).get("/api/workouts/logs").set(auth(token));
+  assert.equal(all.status, 200);
+  assert.equal(all.body.length, 1);
+  assert.equal(all.body[0].volume, 640);
+  assert.equal(all.body[0].setCount, 2);
+  assert.equal(all.body[0].exerciseCount, 1);
+  assert.equal(all.body[0].workoutName, "Peito");
+  assert.equal(typeof all.body[0].durationMin, "number");
+
+  const filteredOut = await request(app)
+    .get(`/api/workouts/logs?from=${toDateKey()}&to=${toDateKey()}`)
+    .set(auth(token));
+  assert.equal(filteredOut.body.length, 0);
+  const filteredIn = await request(app)
+    .get(`/api/workouts/logs?from=${yesterday}&to=${yesterday}&habitId=${habit._id}`)
+    .set(auth(token));
+  assert.equal(filteredIn.body.length, 1);
+  const badDate = await request(app).get("/api/workouts/logs?from=2026-02-30").set(auth(token));
+  assert.equal(badDate.status, 400);
+});
+
+test("GET /workouts/logs/:id enriches exercises with names", async () => {
+  const { token } = await registerUser();
+  const habit = await createHabit(token);
+  const exercise = await createExercise(token);
+  const workout = (await createWorkout(token, habit._id, [{ exerciseId: exercise._id, sets: 1, reps: 8 }])).body;
+  const log = await completeLogFor(token, habit, workout, exercise._id, [{ weight: 40, reps: 8, done: true }], toDateKey());
+
+  const res = await request(app).get(`/api/workouts/logs/${log._id}`).set(auth(token));
+  assert.equal(res.status, 200);
+  assert.equal(res.body.log.exercises[0].name, "Supino Reto");
+  assert.equal(res.body.log.exercises[0].muscleGroup, "Peito");
+  assert.equal(res.body.log.workoutName, "Peito");
+  const ghost = await request(app).get("/api/workouts/logs/64b000000000000000000000").set(auth(token));
+  assert.equal(ghost.status, 404);
+});
+
+test("GET /workouts/today separates draft and completed logs", async () => {
+  const { token } = await registerUser();
+  const habit = await createHabit(token);
+  const exercise = await createExercise(token);
+  const workout = (await createWorkout(token, habit._id, [{ exerciseId: exercise._id, sets: 1, reps: 8 }])).body;
+  await completeLogFor(token, habit, workout, exercise._id, [{ weight: 40, reps: 8, done: true }], toDateKey());
+
+  const empty = await request(app).get(`/api/workouts/today?habitId=${habit._id}`).set(auth(token));
+  assert.equal(empty.status, 200);
+  assert.equal(empty.body.completed.length, 1);
+  assert.equal(empty.body.completed[0].workoutName, "Peito");
+  assert.equal(empty.body.draft, null);
+
+  await startDraft(token, workout._id);
+  const withDraft = await request(app).get(`/api/workouts/today?habitId=${habit._id}`).set(auth(token));
+  assert.equal(withDraft.body.draft.status, "in_progress");
+  assert.equal(withDraft.body.draft.workoutName, "Peito");
+
+  const noHabit = await request(app).get("/api/workouts/today").set(auth(token));
+  assert.equal(noHabit.status, 400);
+  const missing = await request(app).get("/api/workouts/today?habitId=64b000000000000000000000").set(auth(token));
+  assert.equal(missing.status, 404);
+});

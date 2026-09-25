@@ -8,8 +8,11 @@ const router = Router();
 router.use(protect);
 
 router.get("/logs/active", asyncHandler(logs.getActiveLog));
+router.get("/logs", asyncHandler(logs.listLogs));
 router.post("/logs", asyncHandler(logs.startLog));
+router.get("/today", asyncHandler(logs.todayForHabit));
 router.put("/logs/:id", asyncHandler(logs.updateLog));
+router.get("/logs/:id", asyncHandler(logs.getLogDetail));
 router.post("/logs/:id/complete", asyncHandler(logs.completeLog));
 router.post("/logs/:id/reopen", asyncHandler(logs.reopenLog));
 router.delete("/logs/:id", asyncHandler(logs.deleteLog));

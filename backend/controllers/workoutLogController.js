@@ -3,7 +3,7 @@ import Exercise from "../models/Exercise.js";
 import Habit from "../models/Habit.js";
 import Workout from "../models/Workout.js";
 import WorkoutLog from "../models/WorkoutLog.js";
-import { hintsFor, markHabitDay } from "../utils/workoutService.js";
+import { hintsFor, logSummary, markHabitDay } from "../utils/workoutService.js";
 import { WORKOUT } from "../utils/workout.js";
 import { isValidDateKey, toDateKey } from "../utils/dateHelpers.js";
 
@@ -190,4 +190,93 @@ export const deleteLog = async (req, res) => {
   const log = await WorkoutLog.findOneAndDelete({ _id: req.params.id, userId: req.user._id });
   if (!log) return res.status(404).json({ message: "Workout log not found" });
   res.json({ message: "Deleted" });
+};
+
+const workoutNames = async (userId, logs) => {
+  const ids = [...new Set(logs.map((l) => String(l.workoutId)))];
+  const workouts = await Workout.find({ _id: { $in: ids }, userId }).select("name");
+  return new Map(workouts.map((w) => [String(w._id), w.name]));
+};
+
+export const listLogs = async (req, res) => {
+  const filter = { userId: req.user._id, status: "completed" };
+  if (req.query.habitId) {
+    if (!mongoose.isValidObjectId(req.query.habitId)) return badRequest(res, "Invalid habitId");
+    filter.habitId = req.query.habitId;
+  }
+  if (req.query.from || req.query.to) {
+    filter.date = {};
+    if (req.query.from) {
+      if (!isValidDateKey(req.query.from)) return badRequest(res, "Invalid date (expected yyyy-MM-dd)");
+      filter.date.$gte = req.query.from;
+    }
+    if (req.query.to) {
+      if (!isValidDateKey(req.query.to)) return badRequest(res, "Invalid date (expected yyyy-MM-dd)");
+      filter.date.$lte = req.query.to;
+    }
+  }
+  const limit = Math.min(200, Math.max(1, Number(req.query.limit) || 50));
+  const logs = await WorkoutLog.find(filter).sort({ completedAt: -1 }).limit(limit).lean();
+  const names = await workoutNames(req.user._id, logs);
+  res.json(
+    logs.map((l) => ({
+      ...logSummary(l),
+      workoutName: names.get(String(l.workoutId)) || "Workout",
+    }))
+  );
+};
+
+export const getLogDetail = async (req, res) => {
+  const log = await WorkoutLog.findOne({ _id: req.params.id, userId: req.user._id }).lean();
+  if (!log) return res.status(404).json({ message: "Workout log not found" });
+  const [workout, exercises] = await Promise.all([
+    Workout.findOne({ _id: log.workoutId, userId: req.user._id }).select("name"),
+    Exercise.find({
+      _id: { $in: [...new Set(log.exercises.map((e) => String(e.exerciseId)))] },
+      userId: req.user._id,
+    }).select("name muscleGroup"),
+  ]);
+  const meta = new Map(exercises.map((e) => [String(e._id), e]));
+  const hints = await hintsFor(req.user._id, log.exercises.map((e) => e.exerciseId));
+  res.json({
+    log: {
+      ...log,
+      workoutName: workout?.name || "Workout",
+      exercises: log.exercises.map((ex) => ({
+        ...ex,
+        name: meta.get(String(ex.exerciseId))?.name || "—",
+        muscleGroup: meta.get(String(ex.exerciseId))?.muscleGroup || "Outro",
+      })),
+    },
+    hints,
+  });
+};
+
+export const todayForHabit = async (req, res) => {
+  if (!mongoose.isValidObjectId(req.query.habitId)) return badRequest(res, "habitId is required");
+  const habit = await Habit.findOne({ _id: req.query.habitId, userId: req.user._id });
+  if (!habit) return res.status(404).json({ message: "Habit not found" });
+  const date = req.query.date || toDateKey();
+  if (!isValidDateKey(date)) return badRequest(res, "Invalid date (expected yyyy-MM-dd)");
+  const [completedLogs, draft] = await Promise.all([
+    WorkoutLog.find({ userId: req.user._id, habitId: habit._id, date, status: "completed" })
+      .sort({ completedAt: -1 })
+      .lean(),
+    WorkoutLog.findOne({ userId: req.user._id, habitId: habit._id, status: "in_progress" }).lean(),
+  ]);
+  const names = await workoutNames(req.user._id, [...completedLogs, ...(draft ? [draft] : [])]);
+  res.json({
+    date,
+    draft: draft
+      ? {
+          ...logSummary(draft),
+          status: draft.status,
+          workoutName: names.get(String(draft.workoutId)) || "Workout",
+        }
+      : null,
+    completed: completedLogs.map((l) => ({
+      ...logSummary(l),
+      workoutName: names.get(String(l.workoutId)) || "Workout",
+    })),
+  });
 };
