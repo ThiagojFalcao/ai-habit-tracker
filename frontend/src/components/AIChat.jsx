@@ -4,9 +4,9 @@ import api from "../api/axios.js";
 import Markdown from "./Markdown.jsx";
 
 const SAMPLES = [
-  "Which day of the week am I most consistent?",
-  "What is my best performing category?",
-  "Why do I keep failing my exercise habit?",
+  "Em qual dia da semana eu sou mais consistente?",
+  "Qual é a minha categoria com melhor desempenho?",
+  "Por que eu vivo falhando no meu hábito de exercício?",
 ];
 
 export default function AIChat() {
@@ -15,7 +15,7 @@ export default function AIChat() {
     {
       role: "assistant",
       content:
-        "Hi — ask me anything about your habit data. Try one of the examples below.",
+        "Oi! Pergunte qualquer coisa sobre seus hábitos. Experimente um dos exemplos abaixo.",
     },
   ]);
   const [input, setInput] = useState("");
@@ -43,7 +43,7 @@ export default function AIChat() {
         ...m,
         {
           role: "assistant",
-          content: "Sorry, I couldn't answer that right now.",
+          content: "Desculpe, não consegui responder agora.",
         },
       ]);
     } finally {
@@ -56,7 +56,7 @@ export default function AIChat() {
       <button
         onClick={() => setOpen((o) => !o)}
         className="fixed bottom-20 md:bottom-6 right-6 z-40 w-14 h-14 rounded-full bg-gradient-to-br from-brand-500 to-brand-700 text-white shadow-2xl shadow-brand-500/40 flex items-center justify-center hover:scale-105 active:scale-95 transition"
-        aria-label="AI Chat"
+        aria-label="Chat de IA"
       >
         {open ? <X size={22} /> : <MessageCircle size={22} />}
       </button>
@@ -68,8 +68,8 @@ export default function AIChat() {
               <Sparkles size={14} />
             </div>
             <div>
-              <div className="text-sm font-medium">Habit Analysis</div>
-              <div className="text-xs text-muted">AI-powered insights</div>
+              <div className="text-sm font-medium">Análise de Hábitos</div>
+              <div className="text-xs text-muted">Insights com IA</div>
             </div>
           </div>
 
@@ -99,7 +99,7 @@ export default function AIChat() {
               <div className="flex justify-start">
                 <div className="glass rounded-2xl rounded-bl-md px-3.5 py-2.5 text-sm text-soft flex items-center gap-2">
                   <RefreshCw size={12} className="animate-spin" />
-                  Thinking...
+                  Pensando...
                 </div>
               </div>
             )}
@@ -127,7 +127,7 @@ export default function AIChat() {
           >
             <input
               className="input"
-              placeholder="Ask about your habits..."
+              placeholder="Pergunte sobre seus hábitos..."
               value={input}
               onChange={(e) => setInput(e.target.value)}
             />
