@@ -7,6 +7,9 @@ import Habit from "../models/Habit.js";
 import HabitLog from "../models/HabitLog.js";
 import AIInsight from "../models/AIInsight.js";
 import WaterEntry from "../models/WaterEntry.js";
+import Exercise from "../models/Exercise.js";
+import Workout from "../models/Workout.js";
+import WorkoutLog from "../models/WorkoutLog.js";
 
 before(connectTestDb);
 after(disconnectTestDb);
@@ -109,4 +112,48 @@ test("Habit waterGoal defaults to 4000 and enforces 4000-8000", async () => {
   await assert.rejects(Habit.create({ userId, name: "Water", icon: "💧", waterGoal: 9000 }), /validation/i);
   const custom = await Habit.create({ userId, name: "Water", icon: "💧", waterGoal: 6000 });
   assert.equal(custom.waterGoal, 6000);
+});
+
+test("Exercise requires name and a valid muscle group", async () => {
+  const userId = new mongoose.Types.ObjectId();
+  const ok = await Exercise.create({ userId, name: "Supino Reto", nameKey: "supino reto", muscleGroup: "Peito" });
+  assert.equal(ok.archived, false);
+  await assert.rejects(Exercise.create({ userId, name: "X", nameKey: "x", muscleGroup: "Biceps" }), /validation/i);
+  await assert.rejects(Exercise.create({ userId, nameKey: "x", muscleGroup: "Peito" }), /validation/i);
+});
+
+test("Workout validates sets and reps range", async () => {
+  const userId = new mongoose.Types.ObjectId();
+  const habitId = new mongoose.Types.ObjectId();
+  const exerciseId = new mongoose.Types.ObjectId();
+  const ok = await Workout.create({ userId, habitId, name: "Peito", exercises: [{ exerciseId, sets: 5, reps: 8 }] });
+  assert.equal(ok.exercises.length, 1);
+  await assert.rejects(
+    Workout.create({ userId, habitId, name: "Peito", exercises: [{ exerciseId, sets: 0, reps: 8 }] }),
+    /validation/i
+  );
+  await assert.rejects(
+    Workout.create({ userId, habitId, name: "Peito", exercises: [{ exerciseId, sets: 5, reps: 101 }] }),
+    /validation/i
+  );
+});
+
+test("WorkoutLog accepts empty sets while drafting and rejects bad numbers", async () => {
+  const userId = new mongoose.Types.ObjectId();
+  const habitId = new mongoose.Types.ObjectId();
+  const workoutId = new mongoose.Types.ObjectId();
+  const exerciseId = new mongoose.Types.ObjectId();
+  const draft = await WorkoutLog.create({
+    userId, habitId, workoutId, date: "2026-09-25",
+    exercises: [{ exerciseId, sets: [{ weight: null, reps: 8, done: false }] }],
+  });
+  assert.equal(draft.status, "in_progress");
+  assert.equal(draft.completedAt, null);
+  await assert.rejects(
+    WorkoutLog.create({
+      userId, habitId, workoutId, date: "2026-09-25",
+      exercises: [{ exerciseId, sets: [{ weight: -1, reps: 8, done: false }] }],
+    }),
+    /validation/i
+  );
 });
