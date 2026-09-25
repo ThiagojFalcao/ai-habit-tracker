@@ -16,12 +16,25 @@ export const createLog = async (req, res) => {
   const habit = await Habit.findOne({ _id: habitId, userId: req.user._id });
   if (!habit) return res.status(404).json({ message: "Habit not found" });
   if (isWaterHabit(habit)) {
-    const existing = await HabitLog.findOne({
-      userId: req.user._id,
-      habitId,
-      completedDate,
-    });
-    if (existing) return res.status(201).json(existing);
+    let claim;
+    try {
+      claim = await HabitLog.updateOne(
+        { userId: req.user._id, habitId, completedDate },
+        { $setOnInsert: { userId: req.user._id, habitId, completedDate } },
+        { upsert: true }
+      );
+    } catch (err) {
+      if (err.code !== 11000) throw err;
+      claim = { upsertedCount: 0 };
+    }
+    if (!claim.upsertedCount) {
+      const existing = await HabitLog.findOne({
+        userId: req.user._id,
+        habitId,
+        completedDate,
+      });
+      return res.status(201).json(existing);
+    }
     await WaterEntry.create({
       userId: req.user._id,
       habitId,

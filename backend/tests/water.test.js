@@ -205,6 +205,21 @@ test("DELETE /logs on a water habit clears entries and completion", async () => 
   assert.equal(today.body.items[0].completed, false);
 });
 
+test("concurrent POST /logs creates a single goal-sized entry", async () => {
+  const { token } = await registerUser();
+  const habit = await createHabit(token);
+  const [a, b] = await Promise.all([
+    request(app).post("/api/logs").set(auth(token)).send({ habitId: habit._id }),
+    request(app).post("/api/logs").set(auth(token)).send({ habitId: habit._id }),
+  ]);
+  assert.equal(a.status, 201);
+  assert.equal(b.status, 201);
+  const today = await request(app).get("/api/water/today").set(auth(token));
+  assert.equal(today.body.items[0].total, 4000);
+  const logs = await request(app).get("/api/logs/today").set(auth(token));
+  assert.equal(logs.body.length, 1);
+});
+
 test("undo removes the calendar's goal-sized entry", async () => {
   const { token } = await registerUser();
   const habit = await createHabit(token);
