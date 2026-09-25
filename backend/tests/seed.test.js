@@ -6,6 +6,7 @@ import { runSeed } from "../scripts/seed.js";
 import User from "../models/User.js";
 import Habit from "../models/Habit.js";
 import HabitLog from "../models/HabitLog.js";
+import WaterEntry from "../models/WaterEntry.js";
 import { calcStreak, toDateKey, lastNDays } from "../utils/dateHelpers.js";
 
 after(async () => {
@@ -34,4 +35,9 @@ test("seed creates demo user, 8 habits and rich deterministic logs", async () =>
 
   const days30 = lastNDays(30);
   assert.ok(logs.filter((l) => l.completedDate >= days30[0]).length > 50, "rich data in last 30 days");
+
+  const waterEntries = await WaterEntry.countDocuments();
+  assert.ok(waterEntries > 70, `waterEntries=${waterEntries}`);
+  const partial = await WaterEntry.findOne({ amount: { $lt: 4000 } });
+  assert.ok(partial, "seed deve ter ao menos um dia parcial de água");
 });

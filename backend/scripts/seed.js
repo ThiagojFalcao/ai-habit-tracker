@@ -5,7 +5,9 @@ import User from "../models/User.js";
 import Habit from "../models/Habit.js";
 import HabitLog from "../models/HabitLog.js";
 import AIInsight from "../models/AIInsight.js";
+import WaterEntry from "../models/WaterEntry.js";
 import { toDateKey } from "../utils/dateHelpers.js";
+import { waterGoal } from "../utils/water.js";
 
 const mulberry32 = (a) => () => {
   a |= 0;
@@ -33,6 +35,7 @@ export const runSeed = async (uri = process.env.MONGO_URI) => {
     Habit.deleteMany({}),
     HabitLog.deleteMany({}),
     AIInsight.deleteMany({}),
+    WaterEntry.deleteMany({}),
   ]);
 
   const user = await User.create({ name: "Alex Rivera", email: "alex@example.com", password: "password123" });
@@ -73,12 +76,42 @@ export const runSeed = async (uri = process.env.MONGO_URI) => {
     }
   }
 
-  await HabitLog.insertMany(logs);
+  const waterHabit = habits[0];
+  const partialWaterDays = [
+    { offset: 3, amount: 3200 },
+    { offset: 11, amount: 2500 },
+    { offset: 19, amount: 1000 },
+  ];
+  const partialWaterDates = partialWaterDays.map(({ offset }) => toDateKey(subDays(today, offset)));
+  const storedLogs = logs.filter(
+    (l) => !(String(l.habitId) === String(waterHabit._id) && partialWaterDates.includes(l.completedDate))
+  );
+
+  await HabitLog.insertMany(storedLogs);
+
+  const waterDays = storedLogs
+    .filter((l) => String(l.habitId) === String(waterHabit._id))
+    .map((l) => l.completedDate);
+  const waterEntries = waterDays.map((date) => ({
+    userId: user._id,
+    habitId: waterHabit._id,
+    date,
+    amount: waterGoal(waterHabit),
+  }));
+  for (const { offset, amount } of partialWaterDays) {
+    const date = toDateKey(subDays(today, offset));
+    if (!waterDays.includes(date)) {
+      waterEntries.push({ userId: user._id, habitId: waterHabit._id, date, amount });
+    }
+  }
+  await WaterEntry.insertMany(waterEntries);
+
   const summary = {
     email: "alex@example.com",
     password: "password123",
     habits: habits.length,
-    logs: logs.length,
+    logs: storedLogs.length,
+    waterEntries: waterEntries.length,
     recoveryReady: "Morning run",
   };
   console.log("Seed complete:", summary);
