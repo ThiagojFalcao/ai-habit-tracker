@@ -3,7 +3,7 @@ import Exercise from "../models/Exercise.js";
 import Habit from "../models/Habit.js";
 import Workout from "../models/Workout.js";
 import WorkoutLog from "../models/WorkoutLog.js";
-import { hintsFor } from "../utils/workoutService.js";
+import { hintsFor, markHabitDay } from "../utils/workoutService.js";
 import { WORKOUT } from "../utils/workout.js";
 import { isValidDateKey, toDateKey } from "../utils/dateHelpers.js";
 
@@ -150,4 +150,44 @@ export const updateLog = async (req, res) => {
   }
   await log.save();
   res.json({ log });
+};
+
+export const completeLog = async (req, res) => {
+  const log = await WorkoutLog.findOne({ _id: req.params.id, userId: req.user._id });
+  if (!log) return res.status(404).json({ message: "Workout log not found" });
+  const doneCount = log.exercises.reduce((n, ex) => n + ex.sets.filter((s) => s.done).length, 0);
+  if (log.status !== "completed") {
+    if (doneCount === 0) return badRequest(res, "Mark at least one set as done before completing");
+    log.status = "completed";
+    log.completedAt = new Date();
+    await log.save();
+  }
+  const habitLog = await markHabitDay(req.user._id, log.habitId, log.date);
+  res.json({ log, habitLog });
+};
+
+export const reopenLog = async (req, res) => {
+  const log = await WorkoutLog.findOne({ _id: req.params.id, userId: req.user._id });
+  if (!log) return res.status(404).json({ message: "Workout log not found" });
+  if (log.status === "in_progress") return res.json({ log });
+  const draft = await WorkoutLog.findOne({
+    userId: req.user._id,
+    habitId: log.habitId,
+    status: "in_progress",
+  });
+  if (draft)
+    return res.status(409).json({
+      message: "A workout is already in progress for this habit",
+      logId: draft._id,
+    });
+  log.status = "in_progress";
+  log.completedAt = null;
+  await log.save();
+  res.json({ log });
+};
+
+export const deleteLog = async (req, res) => {
+  const log = await WorkoutLog.findOneAndDelete({ _id: req.params.id, userId: req.user._id });
+  if (!log) return res.status(404).json({ message: "Workout log not found" });
+  res.json({ message: "Deleted" });
 };

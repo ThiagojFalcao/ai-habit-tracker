@@ -332,3 +332,102 @@ test("PUT /workouts/logs/:id rejects completed logs and foreign ids", async () =
     .send({ date: toDateKey() });
   assert.equal(completed.status, 409);
 });
+
+test("complete requires a done set, marks the habit and is idempotent", async () => {
+  const { token } = await registerUser();
+  const habit = await createHabit(token);
+  const exercise = await createExercise(token);
+  const workout = (await createWorkout(token, habit._id, [{ exerciseId: exercise._id, sets: 2, reps: 8 }])).body;
+  const draft = await startDraft(token, workout._id);
+
+  const empty = await request(app).post(`/api/workouts/logs/${draft._id}/complete`).set(auth(token));
+  assert.equal(empty.status, 400);
+
+  await request(app)
+    .put(`/api/workouts/logs/${draft._id}`)
+    .set(auth(token))
+    .send({
+      exercises: [{ exerciseId: exercise._id, sets: [{ weight: 40, reps: 8, done: true }, { weight: 40, reps: 8, done: false }] }],
+    });
+  const first = await request(app).post(`/api/workouts/logs/${draft._id}/complete`).set(auth(token));
+  assert.equal(first.status, 200);
+  assert.equal(first.body.log.status, "completed");
+  assert.ok(first.body.log.completedAt);
+  assert.ok(first.body.habitLog?._id);
+
+  const logs = await request(app).get("/api/logs/today").set(auth(token));
+  assert.equal(logs.body.length, 1);
+  assert.equal(String(logs.body[0].habitId), String(habit._id));
+
+  const second = await request(app).post(`/api/workouts/logs/${draft._id}/complete`).set(auth(token));
+  assert.equal(second.status, 200);
+  assert.equal(String(second.body.log.completedAt), String(first.body.log.completedAt));
+});
+
+test("reopen returns to draft without unmarking the habit", async () => {
+  const { token } = await registerUser();
+  const habit = await createHabit(token);
+  const exercise = await createExercise(token);
+  const workout = (await createWorkout(token, habit._id, [{ exerciseId: exercise._id, sets: 1, reps: 8 }])).body;
+  const draft = await startDraft(token, workout._id);
+  await request(app)
+    .put(`/api/workouts/logs/${draft._id}`)
+    .set(auth(token))
+    .send({ exercises: [{ exerciseId: exercise._id, sets: [{ weight: 40, reps: 8, done: true }] }] });
+  await request(app).post(`/api/workouts/logs/${draft._id}/complete`).set(auth(token));
+
+  const reopened = await request(app).post(`/api/workouts/logs/${draft._id}/reopen`).set(auth(token));
+  assert.equal(reopened.status, 200);
+  assert.equal(reopened.body.log.status, "in_progress");
+  assert.equal(reopened.body.log.completedAt, null);
+
+  const logs = await request(app).get("/api/logs/today").set(auth(token));
+  assert.equal(logs.body.length, 1);
+
+  const again = await request(app).post(`/api/workouts/logs/${draft._id}/complete`).set(auth(token));
+  assert.equal(again.status, 200);
+  assert.equal(again.body.log.status, "completed");
+});
+
+test("reopen is blocked while another draft exists for the habit", async () => {
+  const { token } = await registerUser();
+  const habit = await createHabit(token);
+  const exercise = await createExercise(token);
+  const workout = (await createWorkout(token, habit._id, [{ exerciseId: exercise._id, sets: 1, reps: 8 }])).body;
+  const draft = await startDraft(token, workout._id);
+  const completed = await WorkoutLog.create({
+    userId: draft.userId,
+    habitId: habit._id,
+    workoutId: workout._id,
+    status: "completed",
+    date: draft.date,
+    startedAt: new Date(Date.now() - 7200000),
+    completedAt: new Date(Date.now() - 3600000),
+    exercises: [{ exerciseId: exercise._id, sets: [{ weight: 40, reps: 8, done: true }] }],
+  });
+
+  const blocked = await request(app).post(`/api/workouts/logs/${completed._id}/reopen`).set(auth(token));
+  assert.equal(blocked.status, 409);
+  assert.equal(String(blocked.body.logId), String(draft._id));
+});
+
+test("DELETE /workouts/logs/:id discards drafts without unmarking the habit", async () => {
+  const { token } = await registerUser();
+  const habit = await createHabit(token);
+  const exercise = await createExercise(token);
+  const workout = (await createWorkout(token, habit._id, [{ exerciseId: exercise._id, sets: 1, reps: 8 }])).body;
+  const draft = await startDraft(token, workout._id);
+  await request(app)
+    .put(`/api/workouts/logs/${draft._id}`)
+    .set(auth(token))
+    .send({ exercises: [{ exerciseId: exercise._id, sets: [{ weight: 40, reps: 8, done: true }] }] });
+  await request(app).post(`/api/workouts/logs/${draft._id}/complete`).set(auth(token));
+
+  const del = await request(app).delete(`/api/workouts/logs/${draft._id}`).set(auth(token));
+  assert.equal(del.status, 200);
+  const gone = await request(app).delete(`/api/workouts/logs/${draft._id}`).set(auth(token));
+  assert.equal(gone.status, 404);
+
+  const logs = await request(app).get("/api/logs/today").set(auth(token));
+  assert.equal(logs.body.length, 1);
+});
