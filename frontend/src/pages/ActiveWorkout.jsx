@@ -142,9 +142,13 @@ export default function ActiveWorkout() {
       exercises: current.exercises.filter((_, i) => i !== exIndex),
     }));
 
-  const addExercise = (exercise) => {
+  const rememberExercise = (exercise) => {
     setNames((map) => ({ ...map, [exercise._id]: exercise }));
     setExercises((list) => (list.some((e) => e._id === exercise._id) ? list : [...list, exercise]));
+  };
+
+  const addExercise = (exercise) => {
+    rememberExercise(exercise);
     mutate((current) => ({
       ...current,
       exercises: [
@@ -346,7 +350,7 @@ export default function ActiveWorkout() {
           <ExercisePicker
             exercises={exercises}
             onPick={addExercise}
-            onCreated={addExercise}
+            onCreated={rememberExercise}
             onClose={() => setPickerOpen(false)}
           />
         ) : (
