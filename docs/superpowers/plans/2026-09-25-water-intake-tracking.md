@@ -421,10 +421,20 @@ test("DELETE /water/last removes the most recent entry and un-completes below th
   assert.equal(logs.body.length, 0);
 });
 
-test("undoing a calendar-filled day drops it to zero", async () => {
+test("undoing a goal-sized entry drops the day to zero", async () => {
   const { token } = await registerUser();
   const habit = await createHabit(token);
-  await request(app).post("/api/logs").set(auth(token)).send({ habitId: habit._id });
+  await WaterEntry.create({
+    userId: habit.userId,
+    habitId: habit._id,
+    date: toDateKey(),
+    amount: 4000,
+  });
+  await HabitLog.create({
+    userId: habit.userId,
+    habitId: habit._id,
+    completedDate: toDateKey(),
+  });
   const undo = await request(app).delete("/api/water/last").set(auth(token)).send({ habitId: habit._id });
   assert.equal(undo.body.total, 0);
   assert.equal(undo.body.completed, false);
@@ -490,6 +500,7 @@ Adicionar imports no topo de `water.test.js`:
 import { subDays } from "date-fns";
 import { toDateKey } from "../utils/dateHelpers.js";
 import HabitLog from "../models/HabitLog.js";
+import WaterEntry from "../models/WaterEntry.js";
 ```
 
 - [ ] **Step 2: Rodar e ver falhar**
@@ -600,6 +611,18 @@ test("DELETE /logs on a water habit clears entries and completion", async () => 
   assert.equal(today.body.items[0].total, 0);
   assert.equal(today.body.items[0].completed, false);
 });
+
+test("undo removes the calendar's goal-sized entry", async () => {
+  const { token } = await registerUser();
+  const habit = await createHabit(token);
+  await request(app).post("/api/logs").set(auth(token)).send({ habitId: habit._id });
+  const undo = await request(app).delete("/api/water/last").set(auth(token)).send({ habitId: habit._id });
+  assert.equal(undo.body.removed, true);
+  assert.equal(undo.body.total, 0);
+  assert.equal(undo.body.completed, false);
+  const logs = await request(app).get("/api/logs/today").set(auth(token));
+  assert.equal(logs.body.length, 0);
+});
 ```
 
 - [ ] **Step 2: Rodar e ver falhar**
@@ -649,7 +672,7 @@ Em `deleteLog`, depois da validação de `habitId` e antes do `deleteOne` atual,
 - [ ] **Step 4: Rodar e ver passar**
 
 Run: `node --test tests/water.test.js tests/logs.test.js`
-Expected: PASS (13 + 9 testes)
+Expected: PASS (14 + 9 testes)
 
 - [ ] **Step 5: Commit**
 
@@ -720,10 +743,7 @@ test("deleting a water habit cascades entries and logs", async () => {
 });
 ```
 
-Adicionar import em `water.test.js`:
-```js
-import WaterEntry from "../models/WaterEntry.js";
-```
+`WaterEntry` já é importado em `water.test.js` desde a Task 3 — não adicionar de novo.
 
 - [ ] **Step 2: Rodar e ver falhar**
 
