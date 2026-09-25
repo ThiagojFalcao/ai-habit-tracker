@@ -6,6 +6,8 @@ import Modal from "../components/Modal.jsx";
 import HabitForm from "../components/HabitForm.jsx";
 import TodayHabitCard from "../components/TodayHabitCard.jsx";
 import WaterHabitCard from "../components/WaterHabitCard.jsx";
+import WorkoutHabitCard from "../components/WorkoutHabitCard.jsx";
+import StartWorkoutModal from "../components/StartWorkoutModal.jsx";
 import WeeklyGrid from "../components/WeeklyGrid.jsx";
 import HeatmapChart from "../components/HeatmapChart.jsx";
 import SummaryCards from "../components/SummaryCards.jsx";
@@ -28,6 +30,12 @@ export default function Dashboard() {
   const [weekLogs, setWeekLogs] = useState([]);
   const [heatmap, setHeatmap] = useState([]);
   const [waterToday, setWaterToday] = useState({});
+  const [workoutsToday, setWorkoutsToday] = useState({});
+  const [startFor, setStartFor] = useState(null);
+  const [templates, setTemplates] = useState([]);
+  const [templatesLoading, setTemplatesLoading] = useState(false);
+  const [startError, setStartError] = useState("");
+  const [startingId, setStartingId] = useState(null);
   const [allLogsByHabit, setAllLogsByHabit] = useState({});
   const [loading, setLoading] = useState(true);
 
@@ -61,6 +69,12 @@ export default function Dashboard() {
       setWaterToday(
         Object.fromEntries(waterRes.data.items.map((i) => [String(i.habitId), i.total]))
       );
+
+      const workoutHabits = habitsRes.data.filter((h) => h.tracksWorkouts);
+      const workoutPairs = await Promise.all(
+        workoutHabits.map(async (h) => [h._id, (await api.get(`/workouts/today?habitId=${h._id}`)).data])
+      );
+      setWorkoutsToday(Object.fromEntries(workoutPairs));
 
       const byId = {};
       const start90 = new Date();
@@ -227,6 +241,38 @@ export default function Dashboard() {
     await refreshLogs().catch(() => {});
   };
 
+  const openStart = async (habit) => {
+    setStartFor(habit);
+    setStartError("");
+    setTemplates([]);
+    setTemplatesLoading(true);
+    try {
+      const res = await api.get("/workouts", { params: { habitId: habit._id } });
+      setTemplates(res.data.filter((w) => !w.archived));
+    } catch {
+      setStartError("Não foi possível carregar seus treinos.");
+    } finally {
+      setTemplatesLoading(false);
+    }
+  };
+
+  const startWorkout = async (template) => {
+    setStartingId(template._id);
+    setStartError("");
+    try {
+      const res = await api.post("/workouts/logs", { workoutId: template._id });
+      navigate(`/workouts/logs/${res.data.log._id}`);
+    } catch (err) {
+      if (err.response?.status === 409 && err.response.data?.logId) {
+        navigate(`/workouts/logs/${err.response.data.logId}`);
+        return;
+      }
+      setStartError(err.response?.data?.message || "Não foi possível iniciar o treino.");
+    } finally {
+      setStartingId(null);
+    }
+  };
+
   const saveHabit = async (data) => {
     setSubmitting(true);
     try {
@@ -379,7 +425,21 @@ export default function Dashboard() {
         ) : (
           <div className="space-y-2">
             {habits.map((h) =>
-              isWaterHabit(h) ? (
+              h.tracksWorkouts ? (
+                <WorkoutHabitCard
+                  key={h._id}
+                  habit={h}
+                  completed={completedToday.has(String(h._id))}
+                  streak={streaksById[h._id]?.current || 0}
+                  today={workoutsToday[h._id] || { draft: null, completed: [] }}
+                  onStart={() => openStart(h)}
+                  onResume={() => navigate(`/workouts/logs/${workoutsToday[h._id].draft._id}`)}
+                  onOpen={() => navigate(`/habits/${h._id}`)}
+                  onEdit={() => { setEditing(h); setFormOpen(true); }}
+                  onArchive={() => archiveHabit(h)}
+                  onDelete={() => setDeleteTarget(h)}
+                />
+              ) : isWaterHabit(h) ? (
                 <WaterHabitCard
                   key={h._id}
                   habit={h}
@@ -478,6 +538,16 @@ export default function Dashboard() {
         open={suggestOpen}
         onClose={() => setSuggestOpen(false)}
         onAccept={acceptSuggestion}
+      />
+
+      <StartWorkoutModal
+        open={!!startFor}
+        onClose={() => { setStartFor(null); setStartError(""); }}
+        loading={templatesLoading}
+        templates={templates}
+        error={startError}
+        startingId={startingId}
+        onStart={startWorkout}
       />
     </div>
   );
