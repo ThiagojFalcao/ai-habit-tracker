@@ -5,6 +5,7 @@ import api from "../api/axios.js";
 import Modal from "../components/Modal.jsx";
 import HabitForm from "../components/HabitForm.jsx";
 import TodayHabitCard from "../components/TodayHabitCard.jsx";
+import WaterHabitCard from "../components/WaterHabitCard.jsx";
 import WeeklyGrid from "../components/WeeklyGrid.jsx";
 import HeatmapChart from "../components/HeatmapChart.jsx";
 import SummaryCards from "../components/SummaryCards.jsx";
@@ -16,6 +17,7 @@ import ProgressRing from "../components/ProgressRing.jsx";
 import LoadingSpinner from "../components/LoadingSpinner.jsx";
 import { celebrate, celebrateBig } from "../utils/confetti.js";
 import { streakFromKeys, todayKey, weekKeys } from "../utils/dateHelpers.js";
+import { isWaterHabit } from "../utils/constants.js";
 import { useAuth } from "../context/AuthContext.jsx";
 
 export default function Dashboard() {
@@ -25,6 +27,7 @@ export default function Dashboard() {
   const [todayLogs, setTodayLogs] = useState([]);
   const [weekLogs, setWeekLogs] = useState([]);
   const [heatmap, setHeatmap] = useState([]);
+  const [waterToday, setWaterToday] = useState({});
   const [allLogsByHabit, setAllLogsByHabit] = useState({});
   const [loading, setLoading] = useState(true);
 
@@ -43,17 +46,21 @@ export default function Dashboard() {
       const start = week[0].key;
       const end = week[week.length - 1].key;
 
-      const [habitsRes, todayRes, rangeRes, heatRes] = await Promise.all([
+      const [habitsRes, todayRes, rangeRes, heatRes, waterRes] = await Promise.all([
         api.get("/habits"),
         api.get("/logs/today"),
         api.get("/logs/range", { params: { start, end } }),
         api.get("/logs/heatmap"),
+        api.get("/water/today"),
       ]);
 
       setHabits(habitsRes.data);
       setTodayLogs(todayRes.data);
       setWeekLogs(rangeRes.data);
       setHeatmap(heatRes.data);
+      setWaterToday(
+        Object.fromEntries(waterRes.data.items.map((i) => [String(i.habitId), i.total]))
+      );
 
       const byId = {};
       const start90 = new Date();
@@ -170,6 +177,34 @@ export default function Dashboard() {
         }
       }, 150);
     }
+  };
+
+  const refreshLogs = async () => {
+    const week = weekKeys();
+    const start = week[0].key;
+    const end = week[week.length - 1].key;
+    const [todayRes, rangeRes] = await Promise.all([
+      api.get("/logs/today"),
+      api.get("/logs/range", { params: { start, end } }),
+    ]);
+    setTodayLogs(todayRes.data);
+    setWeekLogs(rangeRes.data);
+  };
+
+  const addWater = async (habit, amount) => {
+    const wasComplete = (waterToday[habit._id] || 0) >= (habit.waterGoal || 4000);
+    const res = await api.post("/water", { habitId: habit._id, amount });
+    setWaterToday((t) => ({ ...t, [habit._id]: res.data.total }));
+    if (!wasComplete && res.data.completed) {
+      celebrate();
+      await refreshLogs();
+    }
+  };
+
+  const undoWater = async (habit) => {
+    const res = await api.delete("/water/last", { data: { habitId: habit._id } });
+    setWaterToday((t) => ({ ...t, [habit._id]: res.data.total }));
+    await refreshLogs();
   };
 
   const saveHabit = async (data) => {
@@ -323,22 +358,38 @@ export default function Dashboard() {
           </div>
         ) : (
           <div className="space-y-2">
-            {habits.map((h) => (
-              <TodayHabitCard
-                key={h._id}
-                habit={h}
-                completed={completedToday.has(String(h._id))}
-                streak={streaksById[h._id]?.current || 0}
-                onOpen={() => navigate(`/habits/${h._id}`)}
-                onToggle={() => toggle(h)}
-                onEdit={() => {
-                  setEditing(h);
-                  setFormOpen(true);
-                }}
-                onArchive={() => archiveHabit(h)}
-                onDelete={() => setDeleteTarget(h)}
-              />
-            ))}
+            {habits.map((h) =>
+              isWaterHabit(h) ? (
+                <WaterHabitCard
+                  key={h._id}
+                  habit={h}
+                  streak={streaksById[h._id]?.current || 0}
+                  total={waterToday[h._id] || 0}
+                  goal={h.waterGoal || 4000}
+                  onAdd={(amount) => addWater(h, amount)}
+                  onUndo={() => undoWater(h)}
+                  onOpen={() => navigate(`/habits/${h._id}`)}
+                  onEdit={() => { setEditing(h); setFormOpen(true); }}
+                  onArchive={() => archiveHabit(h)}
+                  onDelete={() => setDeleteTarget(h)}
+                />
+              ) : (
+                <TodayHabitCard
+                  key={h._id}
+                  habit={h}
+                  completed={completedToday.has(String(h._id))}
+                  streak={streaksById[h._id]?.current || 0}
+                  onOpen={() => navigate(`/habits/${h._id}`)}
+                  onToggle={() => toggle(h)}
+                  onEdit={() => {
+                    setEditing(h);
+                    setFormOpen(true);
+                  }}
+                  onArchive={() => archiveHabit(h)}
+                  onDelete={() => setDeleteTarget(h)}
+                />
+              )
+            )}
           </div>
         )}
       </div>
