@@ -112,7 +112,7 @@ Get-NetTCPConnection -LocalPort 5173 -State Listen | ForEach-Object { Stop-Proce
 - Identidade atual do repo: `Usuario <usuario@localhost>` (placeholder local). Para seus commits aparecerem na sua conta: `git config user.name "Seu Nome"; git config user.email "seu@email"` (ou peça para reescrever o histórico atual).
 - Fluxo: mudança → `npm test` → commit pequeno (`feat:`, `fix:`, `docs:`) → push.
 - **Nunca comitar `.env`** (já está no `.gitignore`) nem segredos.
-- **Licença:** o frontend é um boilerplate público **sem arquivo LICENSE** → mantenha o repo **privado** (uso pessoal/estudo), como consta no README.
+- **Licença:** o frontend é um boilerplate público **sem arquivo LICENSE**. O repo foi publicado como **público** por decisão do dono; os créditos e o aviso de uso pessoal/estudo estão no README (risco de licença do boilerplate assumido).
 
 ## 9. Documentos de design
 
@@ -128,4 +128,4 @@ Get-NetTCPConnection -LocalPort 5173 -State Listen | ForEach-Object { Stop-Proce
 5. Cota grátis do Gemini: **~20/dia por modelo**; 503 = demanda, 429 = cota.
 6. Identidade git do repo é placeholder — ajuste antes de se importar com atribuição.
 7. `--test-concurrency=1` é intencional (evita corrida no banco de teste).
-8. O frontend (boilerplate) não tem LICENSE → repo privado.
+8. O frontend (boilerplate) não tem LICENSE — repo publicado como público por decisão do dono (créditos no README).
