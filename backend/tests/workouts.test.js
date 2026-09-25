@@ -1,6 +1,7 @@
 import { before, after, beforeEach, test } from "node:test";
 import assert from "node:assert/strict";
 import mongoose from "mongoose";
+import { subDays } from "date-fns";
 import { app, request, registerUser, connectTestDb, disconnectTestDb, clearDb } from "./helpers.js";
 import WorkoutLog from "../models/WorkoutLog.js";
 import { toDateKey } from "../utils/dateHelpers.js";
@@ -122,4 +123,121 @@ test("DELETE /workouts/:id is blocked once a log exists", async () => {
 test("workout routes require authentication", async () => {
   const res = await request(app).get("/api/workouts");
   assert.equal(res.status, 401);
+});
+
+const completedLog = (user, habit, workout, exerciseId, sets) =>
+  WorkoutLog.create({
+    userId: user._id,
+    habitId: habit._id,
+    workoutId: workout._id,
+    status: "completed",
+    date: toDateKey(),
+    startedAt: new Date(Date.now() - 3600000),
+    completedAt: new Date(),
+    exercises: [{ exerciseId, sets }],
+  });
+
+test("POST /workouts/logs pre-fills sets from the last completed performance", async () => {
+  const { token, user } = await registerUser();
+  const habit = await createHabit(token);
+  const exercise = await createExercise(token);
+  const workout = (await createWorkout(token, habit._id, [{ exerciseId: exercise._id, sets: 3, reps: 8 }])).body;
+  await completedLog(user, habit, workout, exercise._id, [
+    { weight: 40, reps: 8, done: true },
+    { weight: 42.5, reps: 6, done: true },
+  ]);
+
+  const res = await request(app).post("/api/workouts/logs").set(auth(token)).send({ workoutId: workout._id });
+  assert.equal(res.status, 201);
+  const sets = res.body.log.exercises[0].sets;
+  assert.equal(sets.length, 3);
+  assert.equal(sets[0].weight, 40);
+  assert.equal(sets[1].weight, 42.5);
+  assert.equal(sets[1].reps, 6);
+  assert.equal(sets[2].weight, null);
+  assert.equal(sets[2].reps, 8);
+  assert.equal(sets[0].done, false);
+  assert.equal(res.body.hints[exercise._id].sets.length, 2);
+});
+
+test("prefill ignores extra sets from a longer past session", async () => {
+  const { token, user } = await registerUser();
+  const habit = await createHabit(token);
+  const exercise = await createExercise(token);
+  const workout = (await createWorkout(token, habit._id, [{ exerciseId: exercise._id, sets: 1, reps: 10 }])).body;
+  await completedLog(user, habit, workout, exercise._id, [
+    { weight: 30, reps: 10, done: true },
+    { weight: 35, reps: 8, done: true },
+  ]);
+
+  const res = await request(app).post("/api/workouts/logs").set(auth(token)).send({ workoutId: workout._id });
+  assert.equal(res.body.log.exercises[0].sets.length, 1);
+  assert.equal(res.body.log.exercises[0].sets[0].weight, 30);
+});
+
+test("only one draft per habit, even concurrently", async () => {
+  const { token } = await registerUser();
+  const habit = await createHabit(token);
+  const exercise = await createExercise(token);
+  const workout = (await createWorkout(token, habit._id, [{ exerciseId: exercise._id, sets: 3, reps: 8 }])).body;
+
+  const [a, b] = await Promise.all([
+    request(app).post("/api/workouts/logs").set(auth(token)).send({ workoutId: workout._id }),
+    request(app).post("/api/workouts/logs").set(auth(token)).send({ workoutId: workout._id }),
+  ]);
+  assert.deepEqual([a.status, b.status].sort(), [201, 409]);
+  const conflict = a.status === 409 ? a : b;
+  assert.ok(conflict.body.logId);
+
+  const active = await request(app).get(`/api/workouts/logs/active?habitId=${habit._id}`).set(auth(token));
+  assert.equal(active.status, 200);
+  assert.equal(active.body.draft.status, "in_progress");
+  assert.ok(active.body.draft.exercises[0].sets.length === 3);
+});
+
+test("POST /workouts/logs validates template, date and ownership", async () => {
+  const { token, user } = await registerUser();
+  const other = await registerUser();
+  const habit = await createHabit(token);
+  const exercise = await createExercise(token);
+  const workout = (await createWorkout(token, habit._id, [{ exerciseId: exercise._id, sets: 3, reps: 8 }])).body;
+  const foreignHabit = await createHabit(other.token);
+  const foreignExercise = await createExercise(other.token, "Rosca Direta");
+  const foreignWorkout = (await createWorkout(other.token, foreignHabit._id, [{ exerciseId: foreignExercise._id, sets: 3, reps: 8 }])).body;
+
+  const missing = await request(app).post("/api/workouts/logs").set(auth(token)).send({ workoutId: "64b000000000000000000000" });
+  assert.equal(missing.status, 404);
+  const foreign = await request(app).post("/api/workouts/logs").set(auth(token)).send({ workoutId: foreignWorkout._id });
+  assert.equal(foreign.status, 404);
+  const future = await request(app)
+    .post("/api/workouts/logs")
+    .set(auth(token))
+    .send({ workoutId: workout._id, date: toDateKey(subDays(new Date(), -1)) });
+  assert.equal(future.status, 400);
+  const invalid = await request(app)
+    .post("/api/workouts/logs")
+    .set(auth(token))
+    .send({ workoutId: workout._id, date: "2026-02-30" });
+  assert.equal(invalid.status, 400);
+
+  await request(app).put(`/api/habits/${habit._id}`).set(auth(token)).send({ tracksWorkouts: false });
+  const flagOff = await request(app).post("/api/workouts/logs").set(auth(token)).send({ workoutId: workout._id });
+  assert.equal(flagOff.status, 400);
+  await request(app).put(`/api/habits/${habit._id}`).set(auth(token)).send({ tracksWorkouts: true });
+
+  await request(app).put(`/api/workouts/${workout._id}`).set(auth(token)).send({ archived: true });
+  const archived = await request(app).post("/api/workouts/logs").set(auth(token)).send({ workoutId: workout._id });
+  assert.equal(archived.status, 400);
+});
+
+test("GET /workouts/logs/active returns null without a draft and 400 for bad habitId", async () => {
+  const { token } = await registerUser();
+  const habit = await createHabit(token);
+  const res = await request(app).get("/api/workouts/logs/active").set(auth(token));
+  assert.equal(res.status, 200);
+  assert.equal(res.body.draft, null);
+  const bad = await request(app).get("/api/workouts/logs/active?habitId=abc").set(auth(token));
+  assert.equal(bad.status, 400);
+  const ok = await request(app).get(`/api/workouts/logs/active?habitId=${habit._id}`).set(auth(token));
+  assert.equal(ok.status, 200);
 });
