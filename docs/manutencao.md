@@ -1,0 +1,131 @@
+# Guia de Manutenção — AI Habit Tracker (clone)
+
+> Como o projeto funciona por dentro, onde mexer em cada tipo de mudança e os detalhes que não estão em nenhum outro lugar.
+> Atualizado em 2026-09-24.
+
+---
+
+## 1. Arquitetura em 1 minuto
+
+```
+navegador → Vite (5173) → axios (Bearer JWT) → Express (8000) → Mongoose → MongoDB (Docker, 27018)
+                                                └→ features de IA: Express → Gemini API (@google/genai)
+```
+
+- **Frontend** = boilerplate do canal *Time To Program* clonado. Nossos únicos arquivos: `frontend/.env` (URL da API), `frontend/src/api/axios.js` (client real com JWT) — o mock original foi removido.
+- **Backend** = reconstruído neste projeto (models, controllers, rotas, IA, seed, smoke, testes).
+- **IA** = cega e sem memória: recebe apenas o texto que o backend monta do banco a cada chamada (ver §6).
+
+## 2. Mapa: onde mexer em cada tipo de mudança
+
+| Quero mudar... | Arquivos |
+|---|---|
+| Texto/tela do app | `frontend/src/pages/*.jsx`, `frontend/src/components/*.jsx` (hot-reload aplica sozinho) |
+| Estilo/tema | `frontend/src/index.css`, classes Tailwind nos componentes, `frontend/src/context/ThemeContext.jsx` |
+| Campo novo em hábito | `backend/models/Habit.js` → whitelist em `backend/controllers/habitController.js` (`pickFields`) → `frontend/src/components/HabitForm.jsx` (+ exibição onde precisar). Campo novo é opcional no Mongo — docs antigos ficam sem ele |
+| Nova rota de API | `backend/models` → `backend/controllers` → `backend/routes` → montar em `backend/app.js` → adicionar teste em `backend/tests/` |
+| Regra de streak / datas | `backend/utils/dateHelpers.js` — **espelhado** em `frontend/src/utils/dateHelpers.js` (o frontend calcula streaks localmente); mudou um, confira o outro |
+| Prompt / modelo de IA | prompts: `backend/utils/aiService.js` · modelo: `backend/.env` (`GEMINI_MODEL`) — reiniciar o backend depois |
+| O que a IA "vê" | `backend/controllers/aiController.js` (`buildHabitContext` monta o contexto por feature) |
+| Dados demo | `backend/scripts/seed.js` — ⚠️ **`npm run seed` apaga TODOS os dados** |
+| Verificação de contrato | `backend/scripts/smoke.js` (roda contra o servidor no ar) |
+| Testes | `backend/tests/*.test.js` (node:test + supertest) |
+| Infra do banco | `docker-compose.yml` (raiz) |
+| Login/senha/avatar | `backend/controllers/authController.js`, `backend/models/User.js` |
+
+## 3. Ciclo de desenvolvimento (dia a dia)
+
+```powershell
+docker compose up -d          # banco (uma vez; fica no ar)
+# terminal 1: cd backend;  npm run dev     → API em :8000 (nodemon reinicia sozinho)
+# terminal 2: cd frontend; npm run dev     → app em :5173 (hot-reload)
+
+# depois de mexer:
+cd backend; npm test           # 41 testes (precisa do Docker no ar)
+npm run smoke                  # 27 checks (precisa do servidor no ar)
+
+git add . ; git commit -m "feat: descreva a mudanca"
+```
+
+- Mudou `.env` ou prompts de IA? **Reiniciar o backend** (o nodemon não recarrega `.env`).
+- Frontend: não precisa reiniciar nada (Vite HMR).
+
+## 4. Testes e verificação
+
+| Comando | Cobre | Precisa |
+|---|---|---|
+| `npm test` (backend) | 41 testes: models, auth, habits, logs, IA (degradação), seed | Docker no ar (usa o banco `ai-habit-tracker-test` no mesmo Mongo da 27018) |
+| `npm run smoke` | Contrato completo contra o servidor real (27 checks, inclui IA) | Servidor rodando + Docker |
+| E2E manual | Registrar/logar, check-off com confete, heatmap, Insights, Stats, chat | Navegador em `localhost:5173` |
+
+O contrato da API está pinado em `backend/tests/` + na spec (§4.3). O mock antigo do frontend foi removido — se precisar conferir o contrato original, veja `docs/design/spec.md`.
+
+## 5. Banco de dados
+
+- Container: `ai-habit-tracker-mongo` (`mongo:8.0`), porta host **27018** (a 27017 já é usada pelo seu outro projeto, `habit-mongo`).
+- Volume `ai-habit-tracker_mongo-data` — persiste entre reinícios. `docker compose down` **mantém** os dados; `docker compose down -v` **apaga**.
+- Backup / restore:
+
+```powershell
+# backup
+docker exec ai-habit-tracker-mongo mongodump --db ai-habit-tracker --archive=/tmp/backup.gz
+docker cp ai-habit-tracker-mongo:/tmp/backup.gz ".\backup-$(Get-Date -Format yyyyMMdd).gz"
+# restaurar
+docker cp .\backup-AAAAMMDD.gz ai-habit-tracker-mongo:/tmp/backup.gz
+docker exec ai-habit-tracker-mongo mongorestore --archive=/tmp/backup.gz --drop
+```
+
+- Conferir dados: `docker exec ai-habit-tracker-mongo mongosh ai-habit-tracker --quiet --eval "db.habits.countDocuments()"`
+
+## 6. IA (Gemini)
+
+- **Modelo atual:** `gemini-3.1-flash-lite` (trocar = 1 linha em `backend/.env` + reiniciar).
+- **Cota grátis:** ~20 requisições/dia por modelo. Picos `503 high demand` são transitórios — o app mostra mensagem amigável e é só tentar de novo. Uso: <https://ai.dev/rate-limit>.
+- **Idioma:** respostas em PT-BR (diretiva nos 5 prompts em `aiService.js`).
+- **Sem chave:** servidor sobe normal e as 5 features respondem com mensagem amigável (nunca quebram).
+- **O que a IA vê** (montado por `buildHabitContext` a cada chamada):
+
+| Feature | Contexto enviado |
+|---|---|
+| Relatório semanal | 7 dias: por hábito → nome, categoria, frequência, meta, conclusões, streak atual/recorde; contagem por dia e por dia da semana |
+| Chat | 30 dias (mesmo formato) + a pergunta |
+| Sugestões | 30 dias + respostas do wizard (objetivos, horário produtivo, dificuldades) |
+| Recuperação | Só o hábito em questão: nome, categoria, recorde, total |
+| Motivação matinal | 7 dias + nome do usuário |
+
+- **A IA nunca vê:** senha, e-mail, token, outros usuários, dados fora do período. Não acessa o banco; só recebe o texto acima. (No tier grátis do Google, o texto enviado pode ser usado para melhoria dos serviços deles.)
+
+## 7. Servidores e pegadinhas do Windows
+
+```powershell
+# parar um servidor pela porta
+Get-NetTCPConnection -LocalPort 8000 -State Listen | ForEach-Object { Stop-Process -Id $_.OwningProcess -Force }   # API
+Get-NetTCPConnection -LocalPort 5173 -State Listen | ForEach-Object { Stop-Process -Id $_.OwningProcess -Force }   # Vite
+```
+
+- **`npm test` com arquivos em paralelo dá `ECONNRESET`** — por isso o script usa `--test-concurrency=1`. Não remova.
+- **Acentos aparecem como `�` no console do PowerShell** — é só encoding do terminal; os dados estão corretos (confira no navegador).
+- Testes e seed usam bancos separados no mesmo Mongo (`ai-habit-tracker-test` vs `ai-habit-tracker`) — não se misturam.
+
+## 8. Git e GitHub
+
+- Identidade atual do repo: `Usuario <usuario@localhost>` (placeholder local). Para seus commits aparecerem na sua conta: `git config user.name "Seu Nome"; git config user.email "seu@email"` (ou peça para reescrever o histórico atual).
+- Fluxo: mudança → `npm test` → commit pequeno (`feat:`, `fix:`, `docs:`) → push.
+- **Nunca comitar `.env`** (já está no `.gitignore`) nem segredos.
+- **Licença:** o frontend é um boilerplate público **sem arquivo LICENSE** → mantenha o repo **privado** (uso pessoal/estudo), como consta no README.
+
+## 9. Documentos de design
+
+- `docs/design/spec.md` — design aprovado (arquitetura, contrato da API, modelos, decisões).
+- `docs/design/plano-de-implementacao.md` — plano de execução com o código de referência de cada parte.
+
+## 10. Resumo das coisas que ninguém documentou em outro lugar
+
+1. Porta do Mongo é **27018** (conflito com outro projeto seu na 27017).
+2. `npm run seed` é **destrutivo** — nunca rode com dados reais sem backup.
+3. Respostas de IA em **PT-BR** por diretiva nos prompts; interface ainda majoritariamente em inglês (o chat de análise já foi traduzido).
+4. Testes precisam do **Docker no ar**; smoke precisa do **servidor no ar**.
+5. Cota grátis do Gemini: **~20/dia por modelo**; 503 = demanda, 429 = cota.
+6. Identidade git do repo é placeholder — ajuste antes de se importar com atribuição.
+7. `--test-concurrency=1` é intencional (evita corrida no banco de teste).
+8. O frontend (boilerplate) não tem LICENSE → repo privado.
