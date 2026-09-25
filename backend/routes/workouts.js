@@ -9,6 +9,7 @@ router.use(protect);
 
 router.get("/logs/active", asyncHandler(logs.getActiveLog));
 router.post("/logs", asyncHandler(logs.startLog));
+router.put("/logs/:id", asyncHandler(logs.updateLog));
 router.get("/", asyncHandler(c.listWorkouts));
 router.post("/", asyncHandler(c.createWorkout));
 router.put("/:id", asyncHandler(c.updateWorkout));

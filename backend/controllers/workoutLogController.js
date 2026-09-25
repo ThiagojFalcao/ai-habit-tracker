@@ -4,6 +4,7 @@ import Habit from "../models/Habit.js";
 import Workout from "../models/Workout.js";
 import WorkoutLog from "../models/WorkoutLog.js";
 import { hintsFor } from "../utils/workoutService.js";
+import { WORKOUT } from "../utils/workout.js";
 import { isValidDateKey, toDateKey } from "../utils/dateHelpers.js";
 
 const badRequest = (res, message) => {
@@ -86,4 +87,67 @@ export const getActiveLog = async (req, res) => {
   if (!draft) return res.json({ draft: null, hints: {} });
   const hints = await hintsFor(req.user._id, draft.exercises.map((e) => e.exerciseId));
   res.json({ draft, hints });
+};
+
+const parseLogExercises = async (userId, raw, res) => {
+  if (!Array.isArray(raw)) return badRequest(res, "exercises must be an array");
+  if (raw.length > WORKOUT.maxExercises)
+    return badRequest(res, `At most ${WORKOUT.maxExercises} exercises`);
+  const out = [];
+  for (const item of raw) {
+    if (!item || !mongoose.isValidObjectId(item.exerciseId))
+      return badRequest(res, "Invalid exerciseId");
+    if (!Array.isArray(item.sets) || item.sets.length > WORKOUT.maxSets)
+      return badRequest(res, `Each exercise supports at most ${WORKOUT.maxSets} sets`);
+    const sets = [];
+    for (const set of item.sets) {
+      const weight = set?.weight ?? null;
+      const reps = set?.reps ?? null;
+      const done = Boolean(set?.done);
+      if (weight !== null) {
+        const rounded = Math.round(weight * 100);
+        if (
+          typeof weight !== "number" ||
+          weight < 0 ||
+          weight > WORKOUT.maxWeight ||
+          Math.abs(weight * 100 - rounded) > 1e-6
+        )
+          return badRequest(res, "weight must be 0-1000 with at most 2 decimals");
+      }
+      if (reps !== null && (!Number.isInteger(reps) || reps < 1 || reps > WORKOUT.maxReps))
+        return badRequest(res, `reps must be an integer between 1 and ${WORKOUT.maxReps}`);
+      if (done && (weight === null || reps === null))
+        return badRequest(res, "Done sets require weight and reps");
+      sets.push({ weight, reps, done });
+    }
+    out.push({ exerciseId: item.exerciseId, sets });
+  }
+  const ids = [...new Set(out.map((e) => String(e.exerciseId)))];
+  if (ids.length) {
+    const found = await Exercise.countDocuments({ _id: { $in: ids }, userId });
+    if (found !== ids.length) {
+      res.status(404).json({ message: "Exercise not found" });
+      return null;
+    }
+  }
+  return out;
+};
+
+export const updateLog = async (req, res) => {
+  const log = await WorkoutLog.findOne({ _id: req.params.id, userId: req.user._id });
+  if (!log) return res.status(404).json({ message: "Workout log not found" });
+  if (log.status !== "in_progress")
+    return res.status(409).json({ message: "Log is already completed. Reopen it to edit." });
+  if (req.body.date !== undefined) {
+    const date = resolveDate(req.body.date, res);
+    if (!date) return;
+    log.date = date;
+  }
+  if (req.body.exercises !== undefined) {
+    const exercises = await parseLogExercises(req.user._id, req.body.exercises, res);
+    if (!exercises) return;
+    log.exercises = exercises;
+  }
+  await log.save();
+  res.json({ log });
 };

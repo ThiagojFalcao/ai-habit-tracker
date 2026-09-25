@@ -241,3 +241,94 @@ test("GET /workouts/logs/active returns null without a draft and 400 for bad hab
   const ok = await request(app).get(`/api/workouts/logs/active?habitId=${habit._id}`).set(auth(token));
   assert.equal(ok.status, 200);
 });
+
+const startDraft = async (token, workoutId) =>
+  (await request(app).post("/api/workouts/logs").set(auth(token)).send({ workoutId })).body.log;
+
+test("PUT /workouts/logs/:id autosaves date and sets", async () => {
+  const { token } = await registerUser();
+  const habit = await createHabit(token);
+  const exercise = await createExercise(token);
+  const workout = (await createWorkout(token, habit._id, [{ exerciseId: exercise._id, sets: 2, reps: 8 }])).body;
+  const draft = await startDraft(token, workout._id);
+
+  const res = await request(app)
+    .put(`/api/workouts/logs/${draft._id}`)
+    .set(auth(token))
+    .send({
+      date: toDateKey(subDays(new Date(), 1)),
+      exercises: [
+        {
+          exerciseId: exercise._id,
+          sets: [
+            { weight: 40, reps: 8, done: true },
+            { weight: 12.5, reps: 10, done: false },
+          ],
+        },
+      ],
+    });
+  assert.equal(res.status, 200);
+  assert.equal(res.body.log.date, toDateKey(subDays(new Date(), 1)));
+  assert.equal(res.body.log.exercises[0].sets[0].weight, 40);
+  assert.equal(res.body.log.exercises[0].sets[1].weight, 12.5);
+});
+
+test("PUT /workouts/logs/:id validates set payloads", async () => {
+  const { token, user } = await registerUser();
+  const other = await registerUser();
+  const habit = await createHabit(token);
+  const exercise = await createExercise(token);
+  const foreignExercise = await createExercise(other.token, "Rosca Direta");
+  const workout = (await createWorkout(token, habit._id, [{ exerciseId: exercise._id, sets: 2, reps: 8 }])).body;
+  const draft = await startDraft(token, workout._id);
+  const put = (body) =>
+    request(app).put(`/api/workouts/logs/${draft._id}`).set(auth(token)).send(body);
+
+  const cases = [
+    [{ exerciseId: exercise._id, sets: [{ weight: null, reps: 8, done: true }] }],
+    [{ exerciseId: exercise._id, sets: [{ weight: 40, reps: null, done: true }] }],
+    [{ exerciseId: exercise._id, sets: [{ weight: 1.234, reps: 8, done: false }] }],
+    [{ exerciseId: exercise._id, sets: [{ weight: -1, reps: 8, done: false }] }],
+    [{ exerciseId: exercise._id, sets: [{ weight: 40, reps: 0, done: false }] }],
+    [{ exerciseId: exercise._id, sets: Array.from({ length: 51 }, () => ({ weight: 10, reps: 8, done: false })) }],
+    [{ exerciseId: "abc", sets: [] }],
+  ];
+  for (const exercises of cases) {
+    const res = await put({ exercises });
+    assert.equal(res.status, 400, JSON.stringify(exercises).slice(0, 80));
+  }
+  const foreign = await put({ exercises: [{ exerciseId: foreignExercise._id, sets: [] }] });
+  assert.equal(foreign.status, 404);
+
+  const untouched = await request(app).get(`/api/workouts/logs/active?habitId=${habit._id}`).set(auth(token));
+  assert.equal(untouched.body.draft.exercises[0].sets.length, 2);
+  assert.equal(untouched.body.draft.exercises[0].sets[0].weight, null);
+});
+
+test("PUT /workouts/logs/:id rejects completed logs and foreign ids", async () => {
+  const { token, user } = await registerUser();
+  const other = await registerUser();
+  const habit = await createHabit(token);
+  const exercise = await createExercise(token);
+  const workout = (await createWorkout(token, habit._id, [{ exerciseId: exercise._id, sets: 1, reps: 8 }])).body;
+  const draft = await startDraft(token, workout._id);
+
+  const future = await request(app)
+    .put(`/api/workouts/logs/${draft._id}`)
+    .set(auth(token))
+    .send({ date: toDateKey(subDays(new Date(), -1)) });
+  assert.equal(future.status, 400);
+
+  const foreign = await request(app)
+    .put(`/api/workouts/logs/${draft._id}`)
+    .set(auth(other.token))
+    .send({ date: toDateKey() });
+  assert.equal(foreign.status, 404);
+
+  await WorkoutLog.updateOne({ _id: draft._id }, { status: "completed", completedAt: new Date() });
+  const completed = await request(app)
+    .put(`/api/workouts/logs/${draft._id}`)
+    .set(auth(token))
+    .send({ date: toDateKey() });
+  assert.equal(completed.status, 409);
+});
