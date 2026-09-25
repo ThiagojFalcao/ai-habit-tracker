@@ -2,6 +2,9 @@
 
 Clone do projeto do vídeo **"Build a Full-Stack AI-Powered Habit Tracker App"** (canal Time To Program): frontend do boilerplate do autor + backend reconstruído neste projeto.
 
+- **Repositório:** <https://github.com/ThiagojFalcao/ai-habit-tracker>
+- **Documentação:** `docs/manutencao.md` (guia de manutenção e retomada) · `docs/design/spec.md` (design) · `docs/design/plano-de-implementacao.md` (plano)
+
 ## Stack
 
 - **Frontend:** React 19, Vite, Tailwind CSS 4, Recharts, React Router (boilerplate do canal)

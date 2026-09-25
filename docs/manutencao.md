@@ -5,6 +5,22 @@
 
 ---
 
+## 0. Retomando o projeto em uma nova sessão
+
+**Estado:** completo, funcionando e publicado em <https://github.com/ThiagojFalcao/ai-habit-tracker> (público).
+
+```powershell
+docker compose up -d          # banco (porta 27018)
+# terminal 1: cd backend;  npm run dev    → API  :8000
+# terminal 2: cd frontend; npm run dev    → app  :5173  → abrir http://localhost:5173
+```
+
+- Antes de mexer: leia o mapa da §2 e, para mudanças maiores, a spec (`docs/design/spec.md`).
+- Depois de mexer: `npm test` (backend) e `npm run smoke` (com o servidor no ar) → commit + push.
+- Backlog de melhorias conhecidas: §11.
+
+---
+
 ## 1. Arquitetura em 1 minuto
 
 ```
@@ -106,6 +122,8 @@ Get-NetTCPConnection -LocalPort 5173 -State Listen | ForEach-Object { Stop-Proce
 - **`npm test` com arquivos em paralelo dá `ECONNRESET`** — por isso o script usa `--test-concurrency=1`. Não remova.
 - **Acentos aparecem como `�` no console do PowerShell** — é só encoding do terminal; os dados estão corretos (confira no navegador).
 - Testes e seed usam bancos separados no mesmo Mongo (`ai-habit-tracker-test` vs `ai-habit-tracker`) — não se misturam.
+- **CSS quebrado (app sem estilo) depois de operações git grandes** (rebase/checkout que reescrevem muitos arquivos) com o Vite rodando: o cache dele fica inconsistente. Conserto: parar o Vite, apagar `frontend/.vite` e `frontend/node_modules/.vite`, subir de novo e dar **Ctrl+Shift+R** no navegador.
+- **"It looks like you are trying to access MongoDB over HTTP..."** no navegador = você abriu a porta **27018** (banco de dados). O app é a **5173**.
 
 ## 8. Git e GitHub
 
@@ -129,3 +147,16 @@ Get-NetTCPConnection -LocalPort 5173 -State Listen | ForEach-Object { Stop-Proce
 6. Identidade git do repo é placeholder — ajuste antes de se importar com atribuição.
 7. `--test-concurrency=1` é intencional (evita corrida no banco de teste).
 8. O frontend (boilerplate) não tem LICENSE — repo publicado como público por decisão do dono (créditos no README).
+
+## 11. Backlog (melhorias adiadas)
+
+Da revisão final do código (nenhuma bloqueia o uso):
+
+1. Teste de token JWT expirado (hoje só cobre ausente/inválido)
+2. Validar formato de `completedDate` (`yyyy-MM-dd` + data real) em `logController.js`
+3. `protect` (`middleware/auth.js`) diferenciar token inválido (401) de erro de infraestrutura (5xx)
+4. Tratar corrida de e-mail duplicado no registro (E11000 → 400, não 500)
+5. Logging no backend + mensagem genérica para 500 (hoje `err.message` cru)
+6. Remover índice redundante `userId` em `HabitLog.js`
+7. Smoke deixa usuários `smoke_*` no banco de dev (apagar depois)
+8. Traduzir a interface inteira para PT-BR (só o chat de análise foi traduzido até agora)

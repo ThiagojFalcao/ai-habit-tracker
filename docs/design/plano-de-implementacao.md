@@ -1,5 +1,7 @@
 # Clone do AI Habit Tracker — Implementation Plan
 
+> **Nota pós-execução:** durante a execução a porta do Mongo mudou para **27018** (conflito local na 27017) e o modelo de IA foi atualizado para `gemini-3.1-flash-lite`. O estado real está em `docs/manutencao.md` e `docs/design/spec.md`.
+
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** Reproduzir localmente o app "AI Habit Tracker" do vídeo (MERN + Gemini 2.5 Flash): frontend clonado do boilerplate do autor, backend reconstruído pelo contrato pinado, MongoDB local em Docker, seed e 5 features de IA.

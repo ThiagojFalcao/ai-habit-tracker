@@ -44,7 +44,7 @@ Default Project\
 ### 3.2 Fluxo
 
 ```
-navegador → Vite dev server (5173) → axios (Bearer JWT) → Express (8000) → Mongoose → MongoDB (Docker, 27017)
+navegador → Vite dev server (5173) → axios (Bearer JWT) → Express (8000) → Mongoose → MongoDB (Docker, 27018)
                                                           └→ chamadas de IA: Express → Gemini API (@google/genai)
 ```
 
@@ -54,7 +54,7 @@ navegador → Vite dev server (5173) → axios (Bearer JWT) → Express (8000) �
 |---|---|
 | Frontend (Vite) | 5173 |
 | Backend (Express) | 8000 |
-| MongoDB (Docker) | 27017 |
+| MongoDB (Docker) | 27018 |
 
 ### 3.4 Variáveis de ambiente
 
@@ -62,7 +62,7 @@ navegador → Vite dev server (5173) → axios (Bearer JWT) → Express (8000) �
 
 ```env
 PORT=8000
-MONGO_URI=mongodb://localhost:27017/ai-habit-tracker
+MONGO_URI=mongodb://localhost:27018/ai-habit-tracker
 JWT_SECRET=<64 bytes em hex — gerado com crypto.randomBytes(64).toString("hex")>
 GEMINI_API_KEY=<chave do Google AI Studio — fornecida pelo usuário na fase de IA>
 GEMINI_MODEL=gemini-3.8-flash
@@ -85,7 +85,7 @@ services:
     image: mongo:8.0
     container_name: ai-habit-tracker-mongo
     ports:
-      - "27017:27017"
+      - "27018:27017"
     volumes:
       - mongo-data:/data/db
     restart: unless-stopped
@@ -243,7 +243,7 @@ Nota: o frontend também calcula streaks localmente (`streakFromKeys`); os valor
   4. Chat — responde perguntas usando 30 dias de dados reais como contexto; sem inventar.
   5. Morning motivation — mensagem curta citando hábitos e streaks reais.
 - Contexto montado do banco por feature: relatório = últimos 7 dias; chat = 30 dias + agregação por dia da semana; recovery = dados do hábito; sugestões = respostas do wizard + hábitos atuais.
-- Cada chamada grava um `AIInsight` com `type` correspondente (`weekly`, `suggestion`, `recovery`, `chat`, `morning`) e `meta` (ex.: `question`, `habitId`).
+- Cada chamada com resposta real da IA grava um `AIInsight` com `type` correspondente (`weekly`, `suggestion`, `recovery`, `chat`, `morning`) e `meta` (ex.: `question`, `habitId`).
 - Categoria retornada pela IA é normalizada para a lista de categorias do frontend (`Other` se inválida).
 
 **Ponto de atenção (usuário):** única dependência externa que exige ação sua — criar a chave gratuita no Google AI Studio. Passo a passo será dado na fase 3 da verificação.
@@ -317,7 +317,7 @@ Como rodar (3 comandos + seed), credenciais demo, portas, estrutura, e créditos
 |---|---|
 | Prompts do vídeo extraídos com pequenas diferenças | Aceito (comportamento equivalente); prompts ficam em constante única para ajuste fácil |
 | Boilerplate sem LICENSE | Uso pessoal/estudo; créditos no README; sem redistribuição |
-| Portas 5173/8000/27017 ocupadas | Checar antes de subir; portas configuráveis via env |
+| Portas 5173/8000/27018 ocupadas | Checar antes de subir; portas configuráveis via env |
 | Docker daemon parado / pull da imagem `mongo:8.0` | Verificar na fase 1; `docker compose up -d` documentado |
 | `GEMINI_API_KEY` ausente | CP5: degradação graciosa; features testadas na fase 3 |
 | Divergência de contrato restante | O smoke (§9) falha apontando rota; contrato pinado pelo mock é a fonte de verdade |
