@@ -35,3 +35,16 @@ export const COLORS = [
   "#8b5cf6",
   "#14b8a6",
 ];
+
+export const WATER = {
+  icon: "💧",
+  unit: "ml",
+  goal: 4000,
+  minGoal: 4000,
+  maxGoal: 8000,
+  maxAmount: 8000,
+  presets: [250, 500, 750, 1000],
+  step: 250,
+};
+
+export const isWaterHabit = (habit) => habit?.icon === WATER.icon;

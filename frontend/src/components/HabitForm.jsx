@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { CATEGORIES, COLORS, ICONS } from "../utils/constants.js";
+import { CATEGORIES, COLORS, ICONS, WATER } from "../utils/constants.js";
 
 export default function HabitForm({ initial, onSubmit, onCancel, submitting }) {
   const [form, setForm] = useState({
@@ -10,6 +10,7 @@ export default function HabitForm({ initial, onSubmit, onCancel, submitting }) {
     targetDays: initial?.targetDays || 7,
     color: initial?.color || COLORS[0],
     icon: initial?.icon || ICONS[0],
+    waterGoal: initial?.waterGoal || WATER.goal,
   });
 
   const set = (k) => (e) =>
@@ -24,6 +25,7 @@ export default function HabitForm({ initial, onSubmit, onCancel, submitting }) {
     onSubmit({
       ...form,
       targetDays: Number(form.targetDays),
+      waterGoal: form.icon === WATER.icon ? Number(form.waterGoal) : undefined,
     });
   };
 
@@ -92,6 +94,21 @@ export default function HabitForm({ initial, onSubmit, onCancel, submitting }) {
           className="w-full accent-brand-600"
         />
       </div>
+
+      {form.icon === WATER.icon && (
+        <div>
+          <label className="label">Daily water goal (ml)</label>
+          <input
+            type="number"
+            className="input"
+            min={WATER.minGoal}
+            max={WATER.maxGoal}
+            step={WATER.step}
+            value={form.waterGoal}
+            onChange={set("waterGoal")}
+          />
+        </div>
+      )}
 
       <div>
         <label className="label">Icon</label>
