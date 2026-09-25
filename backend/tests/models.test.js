@@ -6,6 +6,7 @@ import User from "../models/User.js";
 import Habit from "../models/Habit.js";
 import HabitLog from "../models/HabitLog.js";
 import AIInsight from "../models/AIInsight.js";
+import WaterEntry from "../models/WaterEntry.js";
 
 before(connectTestDb);
 after(disconnectTestDb);
@@ -84,4 +85,18 @@ test("AIInsight stores type enum and meta", async () => {
     AIInsight.create({ userId: insight.userId, type: "wrong", content: "x" }),
     /validation/i
   );
+});
+
+test("WaterEntry validates amount range and integer", async () => {
+  const userId = new mongoose.Types.ObjectId();
+  const habitId = new mongoose.Types.ObjectId();
+  const ok = await WaterEntry.create({ userId, habitId, date: "2026-09-25", amount: 500 });
+  assert.equal(ok.amount, 500);
+  for (const amount of [0, -100, 8001, 500.5]) {
+    await assert.rejects(
+      WaterEntry.create({ userId, habitId, date: "2026-09-25", amount }),
+      /validation/i,
+      `amount=${amount}`
+    );
+  }
 });
