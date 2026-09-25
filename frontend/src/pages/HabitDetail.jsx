@@ -54,8 +54,12 @@ export default function HabitDetail() {
         const res = await api.get(`/logs/stats/${habitId}`);
         if (alive) setData(res.data);
         if (isWaterHabit(res.data.habit)) {
-          const wh = await api.get(`/water/history/${habitId}?days=30`);
-          if (alive) setWaterHistory(wh.data);
+          try {
+            const wh = await api.get(`/water/history/${habitId}?days=30`);
+            if (alive) setWaterHistory(wh.data);
+          } catch {
+            if (alive) setWaterHistory(null);
+          }
         }
       } catch {
         if (alive) setNotFound(true);
