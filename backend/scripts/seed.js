@@ -6,6 +6,9 @@ import Habit from "../models/Habit.js";
 import HabitLog from "../models/HabitLog.js";
 import AIInsight from "../models/AIInsight.js";
 import WaterEntry from "../models/WaterEntry.js";
+import Exercise from "../models/Exercise.js";
+import Workout from "../models/Workout.js";
+import WorkoutLog from "../models/WorkoutLog.js";
 import { toDateKey } from "../utils/dateHelpers.js";
 import { waterGoal } from "../utils/water.js";
 
@@ -23,7 +26,7 @@ const HABIT_DEFS = [
   { name: "Read 20 minutes", description: "Fiction or non-fiction, no phone.", category: "Learning", color: "#6366f1", icon: "📚", frequency: "daily", targetDays: 7, prob: 0.82 },
   { name: "Meditate", description: "10 minutes of breath-focused meditation.", category: "Mindfulness", color: "#8b5cf6", icon: "🧘", frequency: "daily", targetDays: 7, prob: 0.6 },
   { name: "Journal", description: "Write 3 things I'm grateful for.", category: "Mindfulness", color: "#ec4899", icon: "✍️", frequency: "daily", targetDays: 5, prob: 0.75, dropoff: true },
-  { name: "Strength training", description: "Push/pull/legs split.", category: "Fitness", color: "#f59e0b", icon: "💪", frequency: "weekly", targetDays: 3, prob: 0.55, weekendDip: true },
+  { name: "Strength training", description: "Push/pull/legs split.", category: "Fitness", color: "#f59e0b", icon: "💪", frequency: "weekly", targetDays: 3, prob: 0.55, weekendDip: true, tracksWorkouts: true },
   { name: "Side project - 1hr", description: "Ship something small every day.", category: "Productivity", color: "#14b8a6", icon: "🎯", frequency: "daily", targetDays: 6, prob: 0.78 },
   { name: "Morning stretch", description: "Five minutes of stretching after waking up.", category: "Health", color: "#22c55e", icon: "🤸", frequency: "daily", targetDays: 7, prob: 0.9 },
 ];
@@ -36,6 +39,9 @@ export const runSeed = async (uri = process.env.MONGO_URI) => {
     HabitLog.deleteMany({}),
     AIInsight.deleteMany({}),
     WaterEntry.deleteMany({}),
+    Exercise.deleteMany({}),
+    Workout.deleteMany({}),
+    WorkoutLog.deleteMany({}),
   ]);
 
   const user = await User.create({ name: "Alex Rivera", email: "alex@example.com", password: "password123" });
@@ -87,6 +93,78 @@ export const runSeed = async (uri = process.env.MONGO_URI) => {
     (l) => !(String(l.habitId) === String(waterHabit._id) && partialWaterDates.includes(l.completedDate))
   );
 
+  const trainingHabit = habits[HABIT_DEFS.findIndex((d) => d.tracksWorkouts)];
+  const exerciseDefs = [
+    { name: "Supino Reto", muscleGroup: "Peito" },
+    { name: "Supino Inclinado", muscleGroup: "Peito" },
+    { name: "Crucifixo", muscleGroup: "Peito" },
+    { name: "Remada Curvada", muscleGroup: "Costas" },
+    { name: "Puxada Alta", muscleGroup: "Costas" },
+    { name: "Agachamento Livre", muscleGroup: "Pernas" },
+  ];
+  const exercises = [];
+  for (const def of exerciseDefs) {
+    exercises.push(
+      await Exercise.create({ ...def, userId: user._id, nameKey: def.name.toLowerCase() })
+    );
+  }
+  const [supino, supinoInclinado, crucifixo, remada, puxada, agachamento] = exercises;
+  const workouts = await Workout.insertMany([
+    {
+      userId: user._id,
+      habitId: trainingHabit._id,
+      name: "Peito",
+      exercises: [
+        { exerciseId: supino._id, sets: 4, reps: 8 },
+        { exerciseId: supinoInclinado._id, sets: 3, reps: 8 },
+        { exerciseId: crucifixo._id, sets: 3, reps: 12 },
+      ],
+    },
+    {
+      userId: user._id,
+      habitId: trainingHabit._id,
+      name: "Costas & Pernas",
+      exercises: [
+        { exerciseId: remada._id, sets: 4, reps: 8 },
+        { exerciseId: puxada._id, sets: 3, reps: 10 },
+        { exerciseId: agachamento._id, sets: 4, reps: 6 },
+      ],
+    },
+  ]);
+
+  const workoutLogs = [];
+  let templateIndex = 0;
+  for (let i = 27; i >= 0; i--) {
+    if (rng() >= 0.4) continue;
+    const date = toDateKey(subDays(today, i));
+    const template = workouts[templateIndex % workouts.length];
+    templateIndex += 1;
+    const week = Math.floor((27 - i) / 7);
+    const base = 30 + week * 2.5;
+    const startedAt = subDays(today, i);
+    startedAt.setHours(18, 0, 0, 0);
+    workoutLogs.push({
+      userId: user._id,
+      habitId: trainingHabit._id,
+      workoutId: template._id,
+      status: "completed",
+      date,
+      startedAt,
+      completedAt: new Date(startedAt.getTime() + 55 * 60000),
+      exercises: template.exercises.map((item, exIndex) => ({
+        exerciseId: item.exerciseId,
+        sets: Array.from({ length: item.sets }, (_, setIndex) => ({
+          weight: base + exIndex * 5,
+          reps: item.reps - (setIndex === item.sets - 1 ? 1 : 0),
+          done: true,
+        })),
+      })),
+    });
+    if (!storedLogs.some((l) => String(l.habitId) === String(trainingHabit._id) && l.completedDate === date)) {
+      storedLogs.push({ userId: user._id, habitId: trainingHabit._id, completedDate: date });
+    }
+  }
+
   await HabitLog.insertMany(storedLogs);
 
   const waterDays = storedLogs
@@ -106,12 +184,16 @@ export const runSeed = async (uri = process.env.MONGO_URI) => {
   }
   await WaterEntry.insertMany(waterEntries);
 
+  await WorkoutLog.insertMany(workoutLogs);
+
   const summary = {
     email: "alex@example.com",
     password: "password123",
     habits: habits.length,
     logs: storedLogs.length,
     waterEntries: waterEntries.length,
+    workouts: workouts.length,
+    workoutLogs: workoutLogs.length,
     recoveryReady: "Morning run",
   };
   console.log("Seed complete:", summary);

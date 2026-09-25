@@ -7,6 +7,9 @@ import User from "../models/User.js";
 import Habit from "../models/Habit.js";
 import HabitLog from "../models/HabitLog.js";
 import WaterEntry from "../models/WaterEntry.js";
+import Exercise from "../models/Exercise.js";
+import Workout from "../models/Workout.js";
+import WorkoutLog from "../models/WorkoutLog.js";
 import { calcStreak, toDateKey, lastNDays } from "../utils/dateHelpers.js";
 
 after(async () => {
@@ -40,4 +43,19 @@ test("seed creates demo user, 8 habits and rich deterministic logs", async () =>
   assert.ok(waterEntries > 70, `waterEntries=${waterEntries}`);
   const partial = await WaterEntry.findOne({ amount: { $lt: 4000 } });
   assert.ok(partial, "seed deve ter ao menos um dia parcial de água");
+
+  assert.equal(await Exercise.countDocuments(), 6);
+  assert.equal(await Workout.countDocuments(), 2);
+  const workoutLogs = await WorkoutLog.countDocuments({ status: "completed" });
+  assert.ok(workoutLogs >= 7 && workoutLogs <= 18, `workoutLogs=${workoutLogs}`);
+  assert.ok(
+    await WorkoutLog.exists({ "exercises.sets.weight": { $gte: 40 } }),
+    "seed deve ter cargas progressivas"
+  );
+
+  const trainingHabit = habits.find((h) => h.tracksWorkouts);
+  assert.ok(trainingHabit, "um hábito deve rastrear treinos");
+  const workoutDates = await WorkoutLog.distinct("date");
+  const markedDates = await HabitLog.find({ habitId: trainingHabit._id }).distinct("completedDate");
+  assert.ok(workoutDates.every((d) => markedDates.includes(d)), "todo dia de treino marca o hábito");
 });
