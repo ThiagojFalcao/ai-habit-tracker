@@ -5,6 +5,7 @@ import { app, request, registerUser, connectTestDb, disconnectTestDb, clearDb } 
 import { toDateKey } from "../utils/dateHelpers.js";
 import HabitLog from "../models/HabitLog.js";
 import WaterEntry from "../models/WaterEntry.js";
+import { migrateWater } from "../scripts/migrate-water.js";
 
 before(connectTestDb);
 after(disconnectTestDb);
@@ -260,4 +261,19 @@ test("deleting a water habit cascades entries and logs", async () => {
   assert.equal(del.status, 200);
   assert.equal(await WaterEntry.countDocuments({ habitId: habit._id }), 0);
   assert.equal(await HabitLog.countDocuments({ habitId: habit._id }), 0);
+});
+
+test("migrateWater backfills legacy water days once", async () => {
+  const { token } = await registerUser();
+  const habit = await createHabit(token);
+  const yesterday = toDateKey(subDays(new Date(), 1));
+  await HabitLog.create({ userId: habit.userId, habitId: habit._id, completedDate: yesterday });
+
+  const first = await migrateWater();
+  const second = await migrateWater();
+  assert.equal(first.entriesCreated, 1);
+  assert.equal(second.entriesCreated, 0);
+  assert.equal(await WaterEntry.countDocuments({ habitId: habit._id, date: yesterday }), 1);
+  assert.equal((await WaterEntry.findOne({ habitId: habit._id, date: yesterday })).amount, 4000);
+  assert.ok(token);
 });
