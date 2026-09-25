@@ -4,6 +4,7 @@ import api from "../api/axios.js";
 import TemplatesTab from "../components/TemplatesTab.jsx";
 import ExercisesTab from "../components/ExercisesTab.jsx";
 import WorkoutHistoryTab from "../components/WorkoutHistoryTab.jsx";
+import DiscardWorkoutModal from "../components/DiscardWorkoutModal.jsx";
 
 const TABS = [
   { id: "templates", label: "Treinos" },
@@ -15,6 +16,9 @@ export default function Workouts() {
   const navigate = useNavigate();
   const [tab, setTab] = useState("templates");
   const [draft, setDraft] = useState(null);
+  const [discardOpen, setDiscardOpen] = useState(false);
+  const [discarding, setDiscarding] = useState(false);
+  const [discardError, setDiscardError] = useState("");
 
   useEffect(() => {
     let alive = true;
@@ -39,6 +43,20 @@ export default function Workouts() {
     };
   }, []);
 
+  const discard = async () => {
+    setDiscarding(true);
+    setDiscardError("");
+    try {
+      await api.delete(`/workouts/logs/${draft._id}`);
+      setDraft(null);
+      setDiscardOpen(false);
+    } catch (err) {
+      setDiscardError(err.response?.data?.message || "Não foi possível descartar o treino.");
+    } finally {
+      setDiscarding(false);
+    }
+  };
+
   return (
     <div className="space-y-6 animate-fade-in">
       <div>
@@ -53,12 +71,23 @@ export default function Workouts() {
             Treino em andamento:{" "}
             <span className="font-medium">{draft.workoutName}</span>
           </div>
-          <button
-            className="btn-primary shrink-0"
-            onClick={() => navigate(`/workouts/logs/${draft._id}`)}
-          >
-            Retomar treino
-          </button>
+          <div className="flex items-center gap-2 shrink-0">
+            <button
+              className="btn-secondary text-rose-500"
+              onClick={() => {
+                setDiscardError("");
+                setDiscardOpen(true);
+              }}
+            >
+              Descartar
+            </button>
+            <button
+              className="btn-primary"
+              onClick={() => navigate(`/workouts/logs/${draft._id}`)}
+            >
+              Retomar treino
+            </button>
+          </div>
         </div>
       )}
       <div className="flex gap-1 border-b divider">
@@ -79,6 +108,14 @@ export default function Workouts() {
       {tab === "templates" && <TemplatesTab />}
       {tab === "exercises" && <ExercisesTab />}
       {tab === "history" && <WorkoutHistoryTab />}
+
+      <DiscardWorkoutModal
+        open={discardOpen}
+        onClose={() => setDiscardOpen(false)}
+        onConfirm={discard}
+        busy={discarding}
+        error={discardError}
+      />
     </div>
   );
 }

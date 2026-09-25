@@ -4,6 +4,7 @@ import { Check, ChevronLeft, Plus, Trash2, X } from "lucide-react";
 import api from "../api/axios.js";
 import LoadingSpinner from "../components/LoadingSpinner.jsx";
 import ExercisePicker from "../components/ExercisePicker.jsx";
+import DiscardWorkoutModal from "../components/DiscardWorkoutModal.jsx";
 import { celebrate } from "../utils/confetti.js";
 import { todayKey } from "../utils/dateHelpers.js";
 
@@ -28,6 +29,9 @@ export default function ActiveWorkout() {
   const [pickerOpen, setPickerOpen] = useState(false);
   const [error, setError] = useState("");
   const [now, setNow] = useState(() => Date.now());
+  const [discardOpen, setDiscardOpen] = useState(false);
+  const [discarding, setDiscarding] = useState(false);
+  const [discardError, setDiscardError] = useState("");
 
   const logRef = useRef(null);
   const timerRef = useRef(null);
@@ -173,8 +177,27 @@ export default function ActiveWorkout() {
       celebrate();
       navigate("/dashboard");
     } catch (err) {
-      setError(err.response?.data?.message || "Não foi possível concluir o treino.");
+      setError(
+        err.response?.status === 400
+          ? "Marque pelo menos uma série como concluída para finalizar."
+          : err.response?.data?.message || "Não foi possível concluir o treino."
+      );
       setSaveState("error");
+    }
+  };
+
+  const discard = async () => {
+    setDiscarding(true);
+    setDiscardError("");
+    try {
+      clearTimeout(timerRef.current);
+      pendingRef.current = false;
+      await api.delete(`/workouts/logs/${logRef.current._id}`);
+      navigate("/dashboard");
+    } catch (err) {
+      setDiscardError(err.response?.data?.message || "Não foi possível descartar o treino.");
+    } finally {
+      setDiscarding(false);
     }
   };
 
@@ -366,16 +389,37 @@ export default function ActiveWorkout() {
           <span className="text-muted">Volume total</span>
           <div className="text-xl font-semibold tabular-nums">{readOnly ? volume : "—"} kg</div>
         </div>
-        {readOnly ? (
-          <button className="btn-secondary" onClick={reopen}>
-            Reabrir treino
-          </button>
-        ) : (
-          <button className="btn-primary" onClick={complete}>
-            Concluir treino
-          </button>
-        )}
+        <div className="flex items-center gap-2 shrink-0">
+          {readOnly ? (
+            <button className="btn-secondary" onClick={reopen}>
+              Reabrir treino
+            </button>
+          ) : (
+            <>
+              <button
+                className="btn-secondary text-rose-500"
+                onClick={() => {
+                  setDiscardError("");
+                  setDiscardOpen(true);
+                }}
+              >
+                Descartar treino
+              </button>
+              <button className="btn-primary" onClick={complete}>
+                Concluir treino
+              </button>
+            </>
+          )}
+        </div>
       </div>
+
+      <DiscardWorkoutModal
+        open={discardOpen}
+        onClose={() => setDiscardOpen(false)}
+        onConfirm={discard}
+        busy={discarding}
+        error={discardError}
+      />
     </div>
   );
 }
