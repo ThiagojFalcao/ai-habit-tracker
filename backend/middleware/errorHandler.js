@@ -3,5 +3,9 @@ export const notFound = (req, res) => res.status(404).json({ message: "Route not
 export const errorHandler = (err, req, res, next) => {
   let status = err.status || 500;
   if (err.name === "ValidationError" || err.name === "CastError") status = 400;
+  if (status >= 500) {
+    console.error(`[error] ${req.method} ${req.originalUrl}`, err);
+    return res.status(status).json({ message: "Server error" });
+  }
   res.status(status).json({ message: err.message || "Server error" });
 };

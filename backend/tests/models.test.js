@@ -58,6 +58,19 @@ test("HabitLog unique index blocks duplicate habit/day per user", async () => {
   );
 });
 
+test("HabitLog declares only the compound unique index (no redundant userId index)", () => {
+  const fields = HabitLog.schema.indexes().map(([spec]) => spec);
+  assert.ok(
+    fields.some((spec) => spec.userId === 1 && spec.habitId === 1 && spec.completedDate === 1),
+    "compound unique index must exist"
+  );
+  assert.equal(
+    fields.some((spec) => Object.keys(spec).length === 1 && spec.userId === 1),
+    false,
+    "standalone userId index is redundant"
+  );
+});
+
 test("AIInsight stores type enum and meta", async () => {
   const insight = await AIInsight.create({
     userId: new mongoose.Types.ObjectId(),

@@ -9,12 +9,18 @@ export const register = async (req, res) => {
     return res.status(400).json({ message: "Name, email and a 6+ character password are required" });
   const exists = await User.findOne({ email: email.toLowerCase().trim() });
   if (exists) return res.status(400).json({ message: "Email already registered" });
-  const user = await User.create({
-    name,
-    email,
-    password,
-    avatar: name.charAt(0).toUpperCase(),
-  });
+  let user;
+  try {
+    user = await User.create({
+      name,
+      email,
+      password,
+      avatar: name.charAt(0).toUpperCase(),
+    });
+  } catch (err) {
+    if (err.code === 11000) return res.status(400).json({ message: "Email already registered" });
+    throw err;
+  }
   res.status(201).json({ user, token: signToken(user._id) });
 };
 
