@@ -1,10 +1,12 @@
 import { useState } from "react";
 import TemplatesTab from "../components/TemplatesTab.jsx";
 import ExercisesTab from "../components/ExercisesTab.jsx";
+import WorkoutHistoryTab from "../components/WorkoutHistoryTab.jsx";
 
 const TABS = [
   { id: "templates", label: "Treinos" },
   { id: "exercises", label: "Exercícios" },
+  { id: "history", label: "Histórico" },
 ];
 
 export default function Workouts() {
@@ -34,6 +36,7 @@ export default function Workouts() {
       </div>
       {tab === "templates" && <TemplatesTab />}
       {tab === "exercises" && <ExercisesTab />}
+      {tab === "history" && <WorkoutHistoryTab />}
     </div>
   );
 }
