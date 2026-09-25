@@ -1,5 +1,8 @@
 import Habit from "../models/Habit.js";
 import HabitLog from "../models/HabitLog.js";
+import WaterEntry from "../models/WaterEntry.js";
+import { isWaterHabit, waterGoal } from "../utils/water.js";
+import { reconcileWaterDay } from "../utils/waterService.js";
 import { calcStreak, isValidDateKey, last90Days, lastNDays, toDateKey } from "../utils/dateHelpers.js";
 
 const invalidDate = (res) => res.status(400).json({ message: "Invalid date (expected yyyy-MM-dd)" });
@@ -12,6 +15,22 @@ export const createLog = async (req, res) => {
   const completedDate = req.body.date || toDateKey();
   const habit = await Habit.findOne({ _id: habitId, userId: req.user._id });
   if (!habit) return res.status(404).json({ message: "Habit not found" });
+  if (isWaterHabit(habit)) {
+    const existing = await HabitLog.findOne({
+      userId: req.user._id,
+      habitId,
+      completedDate,
+    });
+    if (existing) return res.status(201).json(existing);
+    await WaterEntry.create({
+      userId: req.user._id,
+      habitId,
+      date: completedDate,
+      amount: waterGoal(habit),
+    });
+    const result = await reconcileWaterDay(req.user._id, habit, completedDate);
+    return res.status(201).json(result.log);
+  }
   try {
     const log = await HabitLog.findOneAndUpdate(
       { userId: req.user._id, habitId, completedDate },
@@ -34,6 +53,12 @@ export const deleteLog = async (req, res) => {
   if (req.body.date !== undefined && req.body.date !== null && !isValidDateKey(req.body.date))
     return invalidDate(res);
   const completedDate = req.body.date || toDateKey();
+  const habit = await Habit.findOne({ _id: habitId, userId: req.user._id });
+  if (habit && isWaterHabit(habit)) {
+    await WaterEntry.deleteMany({ userId: req.user._id, habitId, date: completedDate });
+    await HabitLog.deleteOne({ userId: req.user._id, habitId, completedDate });
+    return res.json({ message: "Unmarked" });
+  }
   await HabitLog.deleteOne({ userId: req.user._id, habitId, completedDate });
   res.json({ message: "Unmarked" });
 };

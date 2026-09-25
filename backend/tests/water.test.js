@@ -180,3 +180,39 @@ test("GET /water/history validates days and ownership", async () => {
   const foreign = await request(app).get(`/api/water/history/${habit._id}`).set(auth(other.token));
   assert.equal(foreign.status, 404);
 });
+
+test("POST /logs on a water habit creates a goal-sized entry and is idempotent", async () => {
+  const { token } = await registerUser();
+  const habit = await createHabit(token);
+  const first = await request(app).post("/api/logs").set(auth(token)).send({ habitId: habit._id });
+  assert.equal(first.status, 201);
+  const second = await request(app).post("/api/logs").set(auth(token)).send({ habitId: habit._id });
+  assert.equal(second.body._id, first.body._id);
+
+  const today = await request(app).get("/api/water/today").set(auth(token));
+  assert.equal(today.body.items[0].total, 4000);
+  assert.equal(today.body.items[0].completed, true);
+});
+
+test("DELETE /logs on a water habit clears entries and completion", async () => {
+  const { token } = await registerUser();
+  const habit = await createHabit(token);
+  await request(app).post("/api/water").set(auth(token)).send({ habitId: habit._id, amount: 4000 });
+  const del = await request(app).delete("/api/logs").set(auth(token)).send({ habitId: habit._id });
+  assert.equal(del.status, 200);
+  const today = await request(app).get("/api/water/today").set(auth(token));
+  assert.equal(today.body.items[0].total, 0);
+  assert.equal(today.body.items[0].completed, false);
+});
+
+test("undo removes the calendar's goal-sized entry", async () => {
+  const { token } = await registerUser();
+  const habit = await createHabit(token);
+  await request(app).post("/api/logs").set(auth(token)).send({ habitId: habit._id });
+  const undo = await request(app).delete("/api/water/last").set(auth(token)).send({ habitId: habit._id });
+  assert.equal(undo.body.removed, true);
+  assert.equal(undo.body.total, 0);
+  assert.equal(undo.body.completed, false);
+  const logs = await request(app).get("/api/logs/today").set(auth(token));
+  assert.equal(logs.body.length, 0);
+});
