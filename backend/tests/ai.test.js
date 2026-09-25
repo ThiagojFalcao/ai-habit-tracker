@@ -3,6 +3,9 @@ import assert from "node:assert/strict";
 import { app, request, registerUser, connectTestDb, disconnectTestDb, clearDb } from "./helpers.js";
 import AIInsight from "../models/AIInsight.js";
 import { parseJson } from "../utils/aiService.js";
+import { buildHabitContext } from "../controllers/aiController.js";
+import Habit from "../models/Habit.js";
+import WaterEntry from "../models/WaterEntry.js";
 
 process.env.GEMINI_API_KEY = "";
 
@@ -69,4 +72,18 @@ test("AI routes validate input and ownership", async () => {
 test("AI routes require authentication", async () => {
   const res = await request(app).get("/api/ai/morning");
   assert.equal(res.status, 401);
+});
+
+test("buildHabitContext includes water aggregates and daily series", async () => {
+  const { user } = await registerUser();
+  const habit = await Habit.create({ userId: user._id, name: "Drink water", icon: "💧" });
+  const today = new Date();
+  const key = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, "0")}-${String(today.getDate()).padStart(2, "0")}`;
+  await WaterEntry.create({ userId: user._id, habitId: habit._id, date: key, amount: 4200 });
+
+  const context = await buildHabitContext(user._id, 7);
+  assert.match(context, /water, goal 4000ml\/day/);
+  assert.match(context, /4200ml/);
+  assert.match(context, /water daily: /);
+  assert.match(context, new RegExp(`${key.slice(5)}:4200`));
 });
