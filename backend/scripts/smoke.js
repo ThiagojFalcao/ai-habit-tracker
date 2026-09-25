@@ -1,0 +1,123 @@
+import "dotenv/config";
+
+const BASE = process.env.SMOKE_URL || "http://localhost:8000/api";
+let failures = 0;
+
+const check = (name, cond, extra = "") => {
+  if (cond) console.log(`  ✔ ${name}`);
+  else {
+    failures += 1;
+    console.error(`  ✘ ${name}${extra ? ` — ${extra}` : ""}`);
+  }
+};
+
+const req = async (method, path, { token, body } = {}) => {
+  const res = await fetch(`${BASE}${path}`, {
+    method,
+    headers: {
+      "Content-Type": "application/json",
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+    },
+    body: body === undefined ? undefined : JSON.stringify(body),
+  });
+  let data = null;
+  try {
+    data = await res.json();
+  } catch {}
+  return { status: res.status, data };
+};
+
+const main = async () => {
+  const today = new Date().toISOString().slice(0, 10);
+  const email = `smoke_${Date.now()}@test.com`;
+  console.log(`Smoke: ${BASE}`);
+
+  let r = await req("GET", "/health");
+  check("GET /health", r.status === 200 && r.data?.status === "ok");
+
+  r = await req("POST", "/auth/register", { body: { name: "Smoke User", email, password: "password123" } });
+  check("POST /auth/register", r.status === 201 && r.data?.token && r.data?.user?.email === email);
+  const token = r.data?.token;
+
+  r = await req("GET", "/habits");
+  check("GET /habits sem token → 401", r.status === 401);
+
+  r = await req("GET", "/auth/me", { token });
+  check("GET /auth/me", r.status === 200 && r.data?.user?.email === email);
+
+  r = await req("PUT", "/auth/profile", { token, body: { morningMotivation: false } });
+  check("PUT /auth/profile", r.status === 200 && r.data?.user?.morningMotivation === false);
+
+  r = await req("POST", "/habits", { token, body: { name: "Drink water", category: "Health", frequency: "daily", targetDays: 7, color: "#0ea5e9", icon: "💧" } });
+  check("POST /habits", r.status === 201 && r.data?._id && r.data?.order === 0);
+  const habitId = r.data?._id;
+
+  r = await req("GET", "/habits", { token });
+  check("GET /habits", r.status === 200 && Array.isArray(r.data) && r.data.length === 1);
+
+  r = await req("PUT", `/habits/${habitId}`, { token, body: { name: "Drink 2L water" } });
+  check("PUT /habits/:id", r.status === 200 && r.data?.name === "Drink 2L water");
+
+  r = await req("PUT", `/habits/${habitId}/archive`, { token });
+  check("PUT /habits/:id/archive", r.status === 200 && r.data?.isArchived === true);
+  r = await req("GET", "/habits", { token });
+  check("arquivado fora da lista padrão", r.status === 200 && r.data.length === 0);
+  r = await req("GET", "/habits?includeArchived=true", { token });
+  check("includeArchived=true inclui", r.status === 200 && r.data.length === 1);
+  r = await req("PUT", `/habits/${habitId}/archive`, { token });
+  check("archive toggle de volta", r.status === 200 && r.data?.isArchived === false);
+
+  r = await req("PUT", "/habits/reorder", { token, body: { ids: [habitId] } });
+  check("PUT /habits/reorder", r.status === 200 && r.data?.message);
+
+  r = await req("POST", "/logs", { token, body: { habitId, date: today } });
+  check("POST /logs", (r.status === 200 || r.status === 201) && r.data?.completedDate === today);
+  const logId = r.data?._id;
+  r = await req("POST", "/logs", { token, body: { habitId, date: today } });
+  check("POST /logs idempotente", r.data?._id === logId);
+
+  r = await req("GET", "/logs/today", { token });
+  check("GET /logs/today", r.status === 200 && r.data.length === 1);
+
+  r = await req("GET", `/logs/range?start=${today}&end=${today}`, { token });
+  check("GET /logs/range", r.status === 200 && r.data.length === 1);
+
+  r = await req("GET", "/logs/heatmap", { token });
+  check("GET /logs/heatmap (90 dias)", r.status === 200 && r.data.length === 90 && r.data[89]?.count === 1);
+
+  r = await req("GET", "/logs/stats", { token });
+  const row = r.data?.perHabit?.[0];
+  check("GET /logs/stats", r.status === 200 && r.data?.days?.length === 30 && row?.currentStreak === 1 && row?.completions30d === 1);
+
+  r = await req("GET", `/logs/stats/${habitId}`, { token });
+  check("GET /logs/stats/:id", r.status === 200 && r.data?.totalCompletions === 1 && typeof r.data?.completionRate === "number");
+
+  r = await req("DELETE", "/logs", { token, body: { habitId, date: today } });
+  check("DELETE /logs", r.status === 200 && r.data?.message === "Unmarked");
+
+  r = await req("GET", "/ai/morning", { token });
+  check("GET /ai/morning", r.status === 200 && typeof r.data?.content === "string" && r.data.content.length > 0);
+
+  r = await req("POST", "/ai/weekly-report", { token });
+  check("POST /ai/weekly-report", r.status === 200 && typeof r.data?.content === "string");
+
+  r = await req("POST", "/ai/chat", { token, body: { question: "Which day am I most consistent?" } });
+  check("POST /ai/chat", r.status === 200 && typeof r.data?.content === "string");
+
+  r = await req("POST", "/ai/suggest-habits", { token, body: { goals: "get fitter", productiveTime: "mornings", struggles: "late night snacks" } });
+  check("POST /ai/suggest-habits", r.status === 200 && r.data?.suggestions?.length === 3 && r.data.suggestions[0]?.name);
+
+  r = await req("POST", "/ai/recovery-plan", { token, body: { habitId } });
+  check("POST /ai/recovery-plan", r.status === 200 && typeof r.data?.content === "string");
+
+  r = await req("DELETE", `/habits/${habitId}`, { token });
+  check("DELETE /habits/:id", r.status === 200 && r.data?.message === "Deleted");
+
+  console.log(failures === 0 ? "\nSMOKE PASS ✓" : `\nSMOKE FAIL — ${failures} falha(s) ✘`);
+  process.exit(failures === 0 ? 0 : 1);
+};
+
+main().catch((err) => {
+  console.error("Smoke crashed (o servidor está rodando?):", err.message);
+  process.exit(1);
+});
