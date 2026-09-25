@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useLocation, useNavigate, useParams } from "react-router-dom";
 import { addMonths, format, startOfMonth, subMonths } from "date-fns";
 import { ArrowLeft, Flame, Pencil, Target, Trophy } from "lucide-react";
@@ -44,6 +44,18 @@ export default function HabitDetail() {
   const [savingKey, setSavingKey] = useState(null);
   const [waterHistory, setWaterHistory] = useState(null);
 
+  const refreshWaterHistory = useCallback(
+    async (isAlive = () => true) => {
+      try {
+        const wh = await api.get(`/water/history/${habitId}?days=30`);
+        if (isAlive()) setWaterHistory(wh.data);
+      } catch {
+        if (isAlive()) setWaterHistory(null);
+      }
+    },
+    [habitId]
+  );
+
   useEffect(() => {
     let alive = true;
     (async () => {
@@ -54,12 +66,7 @@ export default function HabitDetail() {
         const res = await api.get(`/logs/stats/${habitId}`);
         if (alive) setData(res.data);
         if (isWaterHabit(res.data.habit)) {
-          try {
-            const wh = await api.get(`/water/history/${habitId}?days=30`);
-            if (alive) setWaterHistory(wh.data);
-          } catch {
-            if (alive) setWaterHistory(null);
-          }
+          await refreshWaterHistory(() => alive);
         }
       } catch {
         if (alive) setNotFound(true);
@@ -70,7 +77,7 @@ export default function HabitDetail() {
     return () => {
       alive = false;
     };
-  }, [habitId]);
+  }, [habitId, refreshWaterHistory]);
 
   const habit = data?.habit;
   const dates = useMemo(() => data?.completedDates || [], [data]);
@@ -140,6 +147,11 @@ export default function HabitDetail() {
       try {
         const res = await api.get(`/logs/stats/${habitId}`);
         setData(res.data);
+        if (isWaterHabit(res.data.habit)) {
+          await refreshWaterHistory();
+        } else {
+          setWaterHistory(null);
+        }
       } catch {
         // keep the optimistic state if the refresh fails
       } finally {
@@ -153,6 +165,11 @@ export default function HabitDetail() {
     try {
       const res = await api.put(`/habits/${habitId}`, formData);
       setData((d) => ({ ...d, habit: res.data }));
+      if (isWaterHabit(res.data)) {
+        await refreshWaterHistory();
+      } else {
+        setWaterHistory(null);
+      }
       setFormOpen(false);
     } finally {
       setSubmitting(false);

@@ -106,6 +106,7 @@ export default function HabitForm({ initial, onSubmit, onCancel, submitting }) {
             step={WATER.step}
             value={form.waterGoal}
             onChange={set("waterGoal")}
+            required
           />
         </div>
       )}

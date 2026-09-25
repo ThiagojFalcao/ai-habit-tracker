@@ -215,7 +215,7 @@ export default function Dashboard() {
     syncWaterLog(habit, res.data.completed);
     if (!wasComplete && res.data.completed) {
       celebrate();
-      await refreshLogs();
+      await refreshLogs().catch(() => {});
     }
   };
 
@@ -224,7 +224,7 @@ export default function Dashboard() {
     const res = await api.delete("/water/last", { data: { habitId: habit._id } });
     setWaterToday((t) => ({ ...t, [habit._id]: res.data.total }));
     if (wasComplete !== res.data.completed) syncWaterLog(habit, res.data.completed);
-    await refreshLogs();
+    await refreshLogs().catch(() => {});
   };
 
   const saveHabit = async (data) => {
