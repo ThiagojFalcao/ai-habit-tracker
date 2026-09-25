@@ -1,8 +1,27 @@
 import { Flame, Trophy, Target } from "lucide-react";
 
-export default function HabitStatsCard({ stat }) {
+export default function HabitStatsCard({ stat, onClick }) {
+  const clickable = typeof onClick === "function";
   return (
-    <div className="card p-4 flex items-center gap-4">
+    <div
+      role={clickable ? "button" : undefined}
+      tabIndex={clickable ? 0 : undefined}
+      title={clickable ? "View details" : undefined}
+      onClick={onClick}
+      onKeyDown={
+        clickable
+          ? (e) => {
+              if (e.key === "Enter" || e.key === " ") {
+                e.preventDefault();
+                onClick();
+              }
+            }
+          : undefined
+      }
+      className={`card p-4 flex items-center gap-4 ${
+        clickable ? "cursor-pointer transition hover:bg-[var(--surface-hover)]" : ""
+      }`}
+    >
       <div
         className="w-12 h-12 rounded-xl flex items-center justify-center text-xl shrink-0"
         style={{ background: `${stat.color}26`, color: stat.color }}

@@ -1,7 +1,7 @@
 import { weekKeys } from "../utils/dateHelpers.js";
 import { Check } from "lucide-react";
 
-export default function WeeklyGrid({ habits, logsByHabit, days: customDays }) {
+export default function WeeklyGrid({ habits, logsByHabit, days: customDays, onHabitClick }) {
   const days = customDays || weekKeys();
   const todayKey = new Date().toISOString().slice(0, 10);
 
@@ -40,7 +40,16 @@ export default function WeeklyGrid({ habits, logsByHabit, days: customDays }) {
               key={h._id}
               className="grid grid-cols-[180px_repeat(7,minmax(0,1fr))] gap-2 items-center py-2 border-t divider"
             >
-              <div className="flex items-center gap-2 min-w-0">
+              <button
+                type="button"
+                onClick={() => onHabitClick?.(h)}
+                title={onHabitClick ? "View details" : undefined}
+                className={`flex items-center gap-2 min-w-0 text-left ${
+                  onHabitClick
+                    ? "cursor-pointer rounded-lg transition hover:text-brand-600 dark:hover:text-brand-300"
+                    : ""
+                }`}
+              >
                 <span
                   className="w-7 h-7 rounded-lg flex items-center justify-center text-base shrink-0"
                   style={{ background: `${h.color}26`, color: h.color }}
@@ -48,7 +57,7 @@ export default function WeeklyGrid({ habits, logsByHabit, days: customDays }) {
                   {h.icon}
                 </span>
                 <span className="text-sm truncate">{h.name}</span>
-              </div>
+              </button>
               {days.map((d) => {
                 const isDone = done.has(d.key);
                 const future = d.key > todayKey;

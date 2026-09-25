@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { format, parseISO, subDays } from "date-fns";
 import api from "../api/axios.js";
 import HabitStatsCard from "../components/HabitStatsCard.jsx";
@@ -10,6 +11,7 @@ import LoadingSpinner from "../components/LoadingSpinner.jsx";
 import { Trophy, Flame, TrendingDown } from "lucide-react";
 
 export default function Stats() {
+  const navigate = useNavigate();
   const [stats, setStats] = useState(null);
   const [habits, setHabits] = useState([]);
   const [logs, setLogs] = useState([]);
@@ -196,7 +198,20 @@ export default function Stats() {
                 {sortedByComp.slice(0, 5).map((s) => {
                   const pct = Math.round((s.completions30d / 30) * 100);
                   return (
-                    <div key={s.habitId}>
+                    <div
+                      key={s.habitId}
+                      role="button"
+                      tabIndex={0}
+                      title="View details"
+                      onClick={() => navigate(`/habits/${s.habitId}`)}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter" || e.key === " ") {
+                          e.preventDefault();
+                          navigate(`/habits/${s.habitId}`);
+                        }
+                      }}
+                      className="cursor-pointer rounded-lg transition hover:bg-[var(--surface-hover)] -mx-2 px-2 py-1"
+                    >
                       <div className="flex items-center justify-between text-sm mb-1">
                         <div className="flex items-center gap-2 min-w-0">
                           <span className="text-lg shrink-0">{s.icon}</span>
@@ -225,7 +240,11 @@ export default function Stats() {
           <div className="space-y-2">
             <div className="text-sm font-medium">All habits</div>
             {stats.perHabit.map((s) => (
-              <HabitStatsCard key={s.habitId} stat={s} />
+              <HabitStatsCard
+                key={s.habitId}
+                stat={s}
+                onClick={() => navigate(`/habits/${s.habitId}`)}
+              />
             ))}
           </div>
         </>

@@ -1,7 +1,7 @@
 # Guia de Manutenção — AI Habit Tracker (clone)
 
 > Como o projeto funciona por dentro, onde mexer em cada tipo de mudança e os detalhes que não estão em nenhum outro lugar.
-> Atualizado em 2026-09-24.
+> Atualizado em 2026-09-25.
 
 ---
 
@@ -37,6 +37,7 @@ navegador → Vite (5173) → axios (Bearer JWT) → Express (8000) → Mongoose
 | Quero mudar... | Arquivos |
 |---|---|
 | Texto/tela do app | `frontend/src/pages/*.jsx`, `frontend/src/components/*.jsx` (hot-reload aplica sozinho) |
+| Detalhe / gráficos de um hábito (`/habits/:id`) | `frontend/src/pages/HabitDetail.jsx`, `components/ConsistencyCalendar.jsx`, `components/MomentumChart.jsx`, `components/WeekdayBarChart.jsx`, `components/RecordsCard.jsx`, `utils/habitMetrics.js` (cálculos) — dados de `GET /logs/stats/:habitId` (`completedDates`, `monthly`) |
 | Estilo/tema | `frontend/src/index.css`, classes Tailwind nos componentes, `frontend/src/context/ThemeContext.jsx` |
 | Campo novo em hábito | `backend/models/Habit.js` → whitelist em `backend/controllers/habitController.js` (`pickFields`) → `frontend/src/components/HabitForm.jsx` (+ exibição onde precisar). Campo novo é opcional no Mongo — docs antigos ficam sem ele |
 | Nova rota de API | `backend/models` → `backend/controllers` → `backend/routes` → montar em `backend/app.js` → adicionar teste em `backend/tests/` |
@@ -57,7 +58,7 @@ docker compose up -d          # banco (uma vez; fica no ar)
 # terminal 2: cd frontend; npm run dev     → app em :5173 (hot-reload)
 
 # depois de mexer:
-cd backend; npm test           # 41 testes (precisa do Docker no ar)
+cd backend; npm test           # 54 testes (precisa do Docker no ar)
 npm run smoke                  # 27 checks (precisa do servidor no ar)
 
 git add . ; git commit -m "feat: descreva a mudanca"
@@ -70,7 +71,7 @@ git add . ; git commit -m "feat: descreva a mudanca"
 
 | Comando | Cobre | Precisa |
 |---|---|---|
-| `npm test` (backend) | 41 testes: models, auth, habits, logs, IA (degradação), seed | Docker no ar (usa o banco `ai-habit-tracker-test` no mesmo Mongo da 27018) |
+| `npm test` (backend) | 54 testes: models, auth, habits, logs, IA (degradação), errorHandler, seed | Docker no ar (usa o banco `ai-habit-tracker-test` no mesmo Mongo da 27018) |
 | `npm run smoke` | Contrato completo contra o servidor real (27 checks, inclui IA) | Servidor rodando + Docker |
 | E2E manual | Registrar/logar, check-off com confete, heatmap, Insights, Stats, chat | Navegador em `localhost:5173` |
 
@@ -152,11 +153,13 @@ Get-NetTCPConnection -LocalPort 5173 -State Listen | ForEach-Object { Stop-Proce
 
 Da revisão final do código (nenhuma bloqueia o uso):
 
-1. Teste de token JWT expirado (hoje só cobre ausente/inválido)
-2. Validar formato de `completedDate` (`yyyy-MM-dd` + data real) em `logController.js`
-3. `protect` (`middleware/auth.js`) diferenciar token inválido (401) de erro de infraestrutura (5xx)
-4. Tratar corrida de e-mail duplicado no registro (E11000 → 400, não 500)
-5. Logging no backend + mensagem genérica para 500 (hoje `err.message` cru)
-6. Remover índice redundante `userId` em `HabitLog.js`
-7. Smoke deixa usuários `smoke_*` no banco de dev (apagar depois)
-8. Traduzir a interface inteira para PT-BR (só o chat de análise foi traduzido até agora)
+1. Smoke deixa usuários `smoke_*` no banco de dev (apagar depois)
+2. Traduzir a interface inteira para PT-BR (só o chat de análise foi traduzido até agora)
+
+**Concluídos em 2026-09-25** (itens 1–6 da lista antiga):
+
+- Teste de token JWT expirado (`tests/auth.test.js`) + `protect` diferenciando token inválido (401) de falha de infraestrutura (500).
+- Validação de data: `isValidDateKey` em `utils/dateHelpers.js` (rejeita `yyyy-MM-dd` inexistente, ex.: `2026-02-30`) aplicada ao `date` de POST/DELETE `/logs` e ao `start`/`end` de `/logs/range` → 400.
+- Corrida de e-mail duplicado no registro (E11000) → 400, não 500.
+- `errorHandler` loga no console (`[error] MÉTODO URL` + stack) e devolve `Server error` genérico para 5xx; 4xx mantém a mensagem específica.
+- Índice `userId_1` redundante removido de `HabitLog.js`; o índice órfão foi dropado do banco de dev. O composto único `{userId, habitId, completedDate}` cobre as buscas por usuário.

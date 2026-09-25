@@ -1,7 +1,13 @@
-import { format, subDays, startOfWeek, endOfWeek, eachDayOfInterval } from "date-fns";
+import { format, isValid, parse, subDays, startOfWeek, endOfWeek, eachDayOfInterval } from "date-fns";
 
 export const toDateKey = (date = new Date()) => format(date, "yyyy-MM-dd");
 export const todayKey = () => toDateKey();
+
+export const isValidDateKey = (value) => {
+  if (typeof value !== "string" || !/^\d{4}-\d{2}-\d{2}$/.test(value)) return false;
+  const parsed = parse(value, "yyyy-MM-dd", new Date());
+  return isValid(parsed) && format(parsed, "yyyy-MM-dd") === value;
+};
 
 export const lastNDays = (n) =>
   Array.from({ length: n }, (_, i) => toDateKey(subDays(new Date(), n - 1 - i)));

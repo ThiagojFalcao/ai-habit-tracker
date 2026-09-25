@@ -2,7 +2,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { subDays, addDays } from "date-fns";
 import {
-  toDateKey, todayKey, last90Days, lastNDays, currentWeekKeys, calcStreak,
+  toDateKey, todayKey, last90Days, lastNDays, currentWeekKeys, calcStreak, isValidDateKey,
 } from "../utils/dateHelpers.js";
 
 test("toDateKey formats in LOCAL time (no UTC slip at 23:59)", () => {
@@ -27,6 +27,18 @@ test("currentWeekKeys spans Monday to Sunday", () => {
   assert.equal(keys.length, 7);
   assert.equal(new Date(`${keys[0]}T12:00:00`).getDay(), 1);
   assert.equal(new Date(`${keys[6]}T12:00:00`).getDay(), 0);
+});
+
+test("isValidDateKey accepts real yyyy-MM-dd dates", () => {
+  assert.equal(isValidDateKey("2026-01-05"), true);
+  assert.equal(isValidDateKey("2024-02-29"), true);
+});
+
+test("isValidDateKey rejects malformed and impossible dates", () => {
+  const bad = ["2026-02-30", "2026-13-01", "2026-00-10", "05/01/2026", "2026-1-5", "2026-01-05T00:00:00Z", "", null, undefined, 20260105];
+  for (const value of bad) {
+    assert.equal(isValidDateKey(value), false, `${value} should be invalid`);
+  }
 });
 
 test("calcStreak: empty → zero", () => {

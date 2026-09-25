@@ -1,11 +1,15 @@
 import Habit from "../models/Habit.js";
 import HabitLog from "../models/HabitLog.js";
-import { calcStreak, last90Days, lastNDays, toDateKey } from "../utils/dateHelpers.js";
+import { calcStreak, isValidDateKey, last90Days, lastNDays, toDateKey } from "../utils/dateHelpers.js";
+
+const invalidDate = (res) => res.status(400).json({ message: "Invalid date (expected yyyy-MM-dd)" });
 
 export const createLog = async (req, res) => {
   const { habitId } = req.body;
-  const completedDate = req.body.date || toDateKey();
   if (!habitId) return res.status(400).json({ message: "habitId is required" });
+  if (req.body.date !== undefined && req.body.date !== null && !isValidDateKey(req.body.date))
+    return invalidDate(res);
+  const completedDate = req.body.date || toDateKey();
   const habit = await Habit.findOne({ _id: habitId, userId: req.user._id });
   if (!habit) return res.status(404).json({ message: "Habit not found" });
   try {
@@ -26,8 +30,10 @@ export const createLog = async (req, res) => {
 
 export const deleteLog = async (req, res) => {
   const { habitId } = req.body;
-  const completedDate = req.body.date || toDateKey();
   if (!habitId) return res.status(400).json({ message: "habitId is required" });
+  if (req.body.date !== undefined && req.body.date !== null && !isValidDateKey(req.body.date))
+    return invalidDate(res);
+  const completedDate = req.body.date || toDateKey();
   await HabitLog.deleteOne({ userId: req.user._id, habitId, completedDate });
   res.json({ message: "Unmarked" });
 };
@@ -40,6 +46,7 @@ export const todayLogs = async (req, res) => {
 export const rangeLogs = async (req, res) => {
   const { start, end } = req.query;
   if (!start || !end) return res.status(400).json({ message: "start and end are required" });
+  if (!isValidDateKey(start) || !isValidDateKey(end)) return invalidDate(res);
   const logs = await HabitLog.find({
     userId: req.user._id,
     completedDate: { $gte: start, $lte: end },
@@ -108,5 +115,6 @@ export const habitStats = async (req, res) => {
     longestStreak: longest,
     completionRate: Math.round((completions30d / 30) * 100),
     monthly,
+    completedDates: [...keys].sort(),
   });
 };

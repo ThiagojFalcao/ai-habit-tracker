@@ -6,6 +6,7 @@ export default function TodayHabitCard({
   habit,
   completed,
   onToggle,
+  onOpen,
   streak = 0,
   onEdit,
   onDelete,
@@ -40,7 +41,11 @@ export default function TodayHabitCard({
 
   return (
     <div
-      className={`card p-4 flex items-center gap-4 transition ${completed
+      onClick={onOpen}
+      title={onOpen ? "View details" : undefined}
+      className={`card p-4 flex items-center gap-4 transition ${
+        onOpen ? "cursor-pointer hover:bg-[var(--surface-hover)]" : ""
+      } ${completed
         ? "ring-1 ring-brand-500/10 bg-brand-500/5 dark:bg-brand-500/3"
         : ""
         }`}
@@ -76,7 +81,10 @@ export default function TodayHabitCard({
         <button
           ref={triggerRef}
           className="btn-ghost p-2"
-          onClick={() => setMenu((m) => !m)}
+          onClick={(e) => {
+            e.stopPropagation();
+            setMenu((m) => !m);
+          }}
           aria-label="Habit options"
         >
           <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
@@ -132,7 +140,10 @@ export default function TodayHabitCard({
       </div>
 
       <button
-        onClick={onToggle}
+        onClick={(e) => {
+          e.stopPropagation();
+          onToggle();
+        }}
         className={`shrink-0 w-11 h-11 rounded-full flex items-center justify-center transition ${completed
           ? "bg-gradient-to-br from-brand-500 to-brand-700 text-white shadow-lg shadow-brand-500/40 animate-pop"
           : "bg-brand-100 border-2 border-border-brand-400 text-brand-400 hover:border-brand-400 hover:text-brand-400"

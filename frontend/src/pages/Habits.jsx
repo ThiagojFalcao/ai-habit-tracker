@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import {
   Plus,
   Search,
@@ -20,6 +21,7 @@ import { streakFromKeys } from "../utils/dateHelpers.js";
 import { format, subDays } from "date-fns";
 
 export default function Habits() {
+  const navigate = useNavigate();
   const [habits, setHabits] = useState([]);
   const [logsByHabit, setLogsByHabit] = useState({});
   const [loading, setLoading] = useState(true);
@@ -238,7 +240,20 @@ export default function Habits() {
             return (
               <div
                 key={h._id}
-                className={`card p-4 flex items-center gap-4 ${
+                role="button"
+                tabIndex={0}
+                title="View details"
+                onClick={() => navigate(`/habits/${h._id}`)}
+                onKeyDown={(e) => {
+                  if (
+                    e.target === e.currentTarget &&
+                    (e.key === "Enter" || e.key === " ")
+                  ) {
+                    e.preventDefault();
+                    navigate(`/habits/${h._id}`);
+                  }
+                }}
+                className={`card p-4 flex items-center gap-4 cursor-pointer transition hover:bg-[var(--surface-hover)] ${
                   h.isArchived ? "opacity-70" : ""
                 }`}
               >
@@ -293,7 +308,8 @@ export default function Habits() {
                 <div className="flex items-center gap-1">
                   <button
                     className="btn-ghost p-2"
-                    onClick={() => {
+                    onClick={(e) => {
+                      e.stopPropagation();
                       setEditing(h);
                       setFormOpen(true);
                     }}
@@ -303,7 +319,10 @@ export default function Habits() {
                   </button>
                   <button
                     className="btn-ghost p-2"
-                    onClick={() => archive(h)}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      archive(h);
+                    }}
                     title={h.isArchived ? "Unarchive" : "Archive"}
                   >
                     {h.isArchived ? (
@@ -314,7 +333,10 @@ export default function Habits() {
                   </button>
                   <button
                     className="btn-ghost p-2 text-rose-500 hover:bg-rose-500/10 hover:text-rose-400"
-                    onClick={() => setDeleteTarget(h)}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setDeleteTarget(h);
+                    }}
                     title="Delete"
                   >
                     <Trash2 size={16} />

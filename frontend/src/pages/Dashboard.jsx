@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { Plus, Sparkles } from "lucide-react";
 import api from "../api/axios.js";
 import Modal from "../components/Modal.jsx";
@@ -19,6 +20,7 @@ import { useAuth } from "../context/AuthContext.jsx";
 
 export default function Dashboard() {
   const { user } = useAuth();
+  const navigate = useNavigate();
   const [habits, setHabits] = useState([]);
   const [todayLogs, setTodayLogs] = useState([]);
   const [weekLogs, setWeekLogs] = useState([]);
@@ -327,6 +329,7 @@ export default function Dashboard() {
                 habit={h}
                 completed={completedToday.has(String(h._id))}
                 streak={streaksById[h._id]?.current || 0}
+                onOpen={() => navigate(`/habits/${h._id}`)}
                 onToggle={() => toggle(h)}
                 onEdit={() => {
                   setEditing(h);
@@ -344,7 +347,11 @@ export default function Dashboard() {
 
       <div className="grid lg:grid-cols-12 gap-5">
         <div className="col-span-8">
-          <WeeklyGrid habits={habits} logsByHabit={weekLogsByHabit} />
+          <WeeklyGrid
+            habits={habits}
+            logsByHabit={weekLogsByHabit}
+            onHabitClick={(habit) => navigate(`/habits/${habit._id}`)}
+          />
         </div>
         <div className="col-span-4">
           <HeatmapChart data={heatmap} />

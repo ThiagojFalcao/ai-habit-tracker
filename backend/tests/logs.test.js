@@ -44,6 +44,26 @@ test("POST /logs rejects unknown habit and DELETE unmarks", async () => {
   assert.equal(todayRes.body.length, 0);
 });
 
+test("POST/DELETE /logs reject invalid dates with 400", async () => {
+  const { token } = await registerUser();
+  const habit = await createHabit(token);
+  for (const date of ["2026-02-30", "2026-13-01", "05/01/2026"]) {
+    const post = await request(app).post("/api/logs").set(auth(token)).send({ habitId: habit._id, date });
+    assert.equal(post.status, 400, `POST should reject ${date}`);
+    assert.equal(post.body.message, "Invalid date (expected yyyy-MM-dd)");
+    const del = await request(app).delete("/api/logs").set(auth(token)).send({ habitId: habit._id, date });
+    assert.equal(del.status, 400, `DELETE should reject ${date}`);
+  }
+});
+
+test("GET /logs/range rejects invalid start/end with 400", async () => {
+  const { token } = await registerUser();
+  const badStart = await request(app).get("/api/logs/range?start=2026-02-30&end=2026-03-01").set(auth(token));
+  assert.equal(badStart.status, 400);
+  const badEnd = await request(app).get("/api/logs/range?start=2026-01-01&end=nope").set(auth(token));
+  assert.equal(badEnd.status, 400);
+});
+
 test("GET /logs/range includes both boundaries only", async () => {
   const { token } = await registerUser();
   const habit = await createHabit(token);
@@ -88,6 +108,21 @@ test("GET /logs/stats returns perHabit streaks over a 30-day window", async () =
   assert.equal(row.longestStreak, 2);
   assert.equal(row.name, "Run");
   assert.equal(row.category, "Other");
+});
+
+test("GET /logs/stats/:habitId returns sorted completedDates for that habit only", async () => {
+  const { token } = await registerUser();
+  const habit = await createHabit(token);
+  const other = await createHabit(token, "Other");
+  const older = toDateKey(subDays(new Date(), 3));
+  const newer = toDateKey(subDays(new Date(), 1));
+  await request(app).post("/api/logs").set(auth(token)).send({ habitId: habit._id, date: newer });
+  await request(app).post("/api/logs").set(auth(token)).send({ habitId: habit._id, date: older });
+  await request(app).post("/api/logs").set(auth(token)).send({ habitId: other._id, date: newer });
+
+  const res = await request(app).get(`/api/logs/stats/${habit._id}`).set(auth(token));
+  assert.equal(res.status, 200);
+  assert.deepEqual(res.body.completedDates, [older, newer]);
 });
 
 test("GET /logs/stats/:habitId returns detail with completionRate and monthly", async () => {

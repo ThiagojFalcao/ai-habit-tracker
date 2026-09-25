@@ -4,6 +4,7 @@ import Login from "./pages/Login.jsx";
 import Register from "./pages/Register.jsx";
 import Dashboard from "./pages/Dashboard.jsx";
 import Habits from "./pages/Habits.jsx";
+import HabitDetail from "./pages/HabitDetail.jsx";
 import Weekly from "./pages/Weekly.jsx";
 import Insights from "./pages/Insights.jsx";
 import Stats from "./pages/Stats.jsx";
@@ -26,6 +27,7 @@ export default function App() {
       >
         <Route path="/dashboard" element={<Dashboard />} />
         <Route path="/habits" element={<Habits />} />
+        <Route path="/habits/:habitId" element={<HabitDetail />} />
         <Route path="/weekly" element={<Weekly />} />
         <Route path="/insights" element={<Insights />} />
         <Route path="/stats" element={<Stats />} />

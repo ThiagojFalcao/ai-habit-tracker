@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { ChevronLeft, ChevronRight, CalendarDays } from "lucide-react";
 import { format, addWeeks, isSameWeek } from "date-fns";
 import api from "../api/axios.js";
@@ -7,6 +8,7 @@ import LoadingSpinner from "../components/LoadingSpinner.jsx";
 import { weekKeysFor } from "../utils/dateHelpers.js";
 
 export default function Weekly() {
+  const navigate = useNavigate();
   const [cursor, setCursor] = useState(new Date());
   const [habits, setHabits] = useState([]);
   const [logs, setLogs] = useState([]);
@@ -169,6 +171,7 @@ export default function Weekly() {
               habits={habits}
               logsByHabit={logsByHabit}
               days={days}
+              onHabitClick={(habit) => navigate(`/habits/${habit._id}`)}
             />
           )}
         </>

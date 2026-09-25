@@ -10,42 +10,45 @@ import {
 } from "recharts";
 import { useTheme } from "../context/ThemeContext.jsx";
 
-export default function MonthlyBarChart({
-  data,
-  title = "Last 30 days",
-  color,
-  activeLabel,
-}) {
+export default function WeekdayBarChart({ data = [], color = "#6366f1" }) {
   const { theme } = useTheme();
   const grid = theme === "dark" ? "rgba(255,255,255,0.08)" : "rgba(15,15,27,0.08)";
   const tick = theme === "dark" ? "#8a8aa0" : "#6b6b78";
+  const peak = data.reduce(
+    (best, d) => (d.rate > best.rate ? d : best),
+    data[0] || { label: "—", rate: 0, count: 0, occurrences: 0 }
+  );
+  const hasData = data.some((d) => d.occurrences > 0);
+
   return (
     <div className="card p-5">
-      <div className="text-sm font-medium mb-3">{title}</div>
-      <div style={{ width: "100%", height: 240 }}>
+      <div className="flex items-baseline justify-between gap-3 mb-3">
+        <div className="text-sm font-medium">Peak focus</div>
+        <div className="text-xs text-muted truncate">
+          {hasData
+            ? `${peak.label} · ${peak.rate}% (${peak.count}/${peak.occurrences})`
+            : "No completions yet"}
+        </div>
+      </div>
+      <div style={{ width: "100%", height: 220 }}>
         <ResponsiveContainer>
           <BarChart data={data}>
-            <defs>
-              <linearGradient id="monbar" x1="0" y1="0" x2="0" y2="1">
-                <stop offset="0%" stopColor={color || "#fde68a"} />
-                <stop offset="100%" stopColor={color ? `${color}88` : "#f59e0b"} />
-              </linearGradient>
-            </defs>
             <CartesianGrid strokeDasharray="3 3" stroke={grid} />
             <XAxis
               dataKey="label"
-              tick={{ fontSize: 11, fill: tick }}
+              tick={{ fontSize: 12, fill: tick }}
               axisLine={false}
               tickLine={false}
-              interval={3}
             />
             <YAxis
               tick={{ fontSize: 12, fill: tick }}
               axisLine={false}
               tickLine={false}
-              allowDecimals={false}
+              domain={[0, 100]}
+              tickFormatter={(value) => `${value}%`}
             />
             <Tooltip
+              formatter={(value) => [`${value}%`, "rate"]}
               cursor={{ fill: theme === "dark" ? "rgba(255,255,255,0.04)" : "rgba(15,15,27,0.04)" }}
               contentStyle={{
                 background: theme === "dark" ? "rgba(20,20,36,0.95)" : "rgba(255,255,255,0.95)",
@@ -56,14 +59,13 @@ export default function MonthlyBarChart({
                 backdropFilter: "blur(12px)",
               }}
             />
-            <Bar dataKey="count" fill="url(#monbar)" radius={[4, 4, 0, 0]}>
-              {activeLabel &&
-                data.map((d, i) => (
-                  <Cell
-                    key={i}
-                    fillOpacity={d.label === activeLabel ? 1 : 0.55}
-                  />
-                ))}
+            <Bar dataKey="rate" radius={[6, 6, 0, 0]}>
+              {data.map((d, i) => (
+                <Cell
+                  key={i}
+                  fill={d === peak && d.rate > 0 ? color : `${color}33`}
+                />
+              ))}
             </Bar>
           </BarChart>
         </ResponsiveContainer>
