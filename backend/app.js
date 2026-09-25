@@ -1,6 +1,7 @@
 import express from "express";
 import cors from "cors";
 import authRoutes from "./routes/auth.js";
+import habitRoutes from "./routes/habits.js";
 import { notFound, errorHandler } from "./middleware/errorHandler.js";
 
 const app = express();
@@ -21,6 +22,7 @@ app.use(
 app.get("/api/health", (req, res) => res.json({ status: "ok" }));
 
 app.use("/api/auth", authRoutes);
+app.use("/api/habits", habitRoutes);
 
 app.use(notFound);
 app.use(errorHandler);
