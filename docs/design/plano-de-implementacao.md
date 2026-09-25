@@ -10,15 +10,15 @@
 
 **Tech Stack:** Node 22 (ESM), Express 4, Mongoose 8, MongoDB 8 (Docker), JWT (`jsonwebtoken`), `bcryptjs`, `@google/genai` (Gemini 2.5 Flash), `date-fns`; frontend: React 19, Vite, Tailwind 4 (já no boilerplate). Testes: `node --test` + `supertest`.
 
-**Spec:** `docs/superpowers/specs/2026-09-24-clone-ai-habit-tracker-design.md`
+**Spec:** `docs/design/spec.md`
 
 ## Global Constraints
 
 - Windows + PowerShell; Node v22.23.2, npm 10 (já instalados); Docker 29 rodando (verificado).
-- Raiz do projeto: `C:\Users\Usuario\Documents\Default Project\ai-habit-tracker\` (repo git próprio, iniciado na Task 1). Todos os comandos de git rodam a partir dessa pasta.
+- Raiz do projeto: `C:\Users\Usuario\Documents\ai-habit-tracker\` (repo git próprio). Todos os comandos de git rodam a partir dessa pasta.
 - Portas: 5173 (Vite), 8000 (Express), 27017 (Mongo Docker `mongo:8.0`, sem auth, volume `mongo-data`).
 - Backend ESM (`"type": "module"`); testes com `node --test` + `supertest`; banco de teste `ai-habit-tracker-test` no mesmo container (Docker precisa estar no ar para `npm test`).
-- Contrato: `docs/superpowers/specs/2026-09-24-clone-ai-habit-tracker-design.md` §4.3 é a fonte de verdade (pinado pelo mock do frontend: `frontend/src/api/axios.js` + `src/utils/mockData.js`). Divergência → o mock vence.
+- Contrato: `docs/design/spec.md` §4.3 é a fonte de verdade (pinado pelo mock do frontend: `frontend/src/api/axios.js` + `src/utils/mockData.js`). Divergência → o mock vence.
 - Categorias capitalizadas exatas: `Health, Fitness, Learning, Mindfulness, Productivity, Social, Finance, Creative, Other`. Datas sempre `yyyy-MM-dd` (local). Erros JSON `{ message }`. Bearer JWT com expiração `7d`.
 - Sem comentários no código. Sem segredos commitados: `.env` no `.gitignore`; `.env.example` versionado.
 - Commits atômicos ao fim de cada task (Conventional Commits).

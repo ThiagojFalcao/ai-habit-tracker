@@ -33,8 +33,8 @@ Critérios de pronto (verificáveis):
 ### 3.1 Estrutura de pastas
 
 ```
-Default Project\
-└── ai-habit-tracker\              ← projeto novo (repo git próprio, iniciado na implementação)
+Documents\
+└── ai-habit-tracker\              ← projeto (repo git próprio)
     ├── docker-compose.yml         ← MongoDB 8 local
     ├── README.md                  ← como rodar + créditos ao canal
     ├── backend\                   ← reconstruído por nós
