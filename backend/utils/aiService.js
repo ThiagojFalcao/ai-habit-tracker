@@ -36,13 +36,21 @@ export const FALLBACK_SUGGESTIONS = [
 const DISABLED_MESSAGE =
   "AI features are disabled right now — add a GEMINI_API_KEY to backend/.env to enable them.";
 
+const PROVIDER_ERROR_MESSAGE =
+  "The AI provider is temporarily unavailable (demand spike or free-tier quota). Please try again in a moment.";
+
 export const chatComplete = async (systemPrompt, userMessage, temperature = 0.7) => {
   const ai = getClient();
   if (!ai) return { disabled: true, text: DISABLED_MESSAGE };
-  const response = await ai.models.generateContent({
-    model: modelName(),
-    contents: userMessage,
-    config: { systemInstruction: systemPrompt, temperature },
-  });
-  return { disabled: false, text: (response.text || "").trim() };
+  try {
+    const response = await ai.models.generateContent({
+      model: modelName(),
+      contents: userMessage,
+      config: { systemInstruction: systemPrompt, temperature },
+    });
+    return { disabled: false, text: (response.text || "").trim() };
+  } catch (err) {
+    console.error("[ai] provider error:", err?.message || err);
+    return { disabled: true, text: PROVIDER_ERROR_MESSAGE };
+  }
 };

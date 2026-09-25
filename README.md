@@ -19,13 +19,18 @@ Clone do projeto do vídeo **"Build a Full-Stack AI-Powered Habit Tracker App"**
 docker compose up -d            # MongoDB local (porta 27018)
 cd backend
 npm install
+Copy-Item .env.example .env     # crie o .env (é ignorado pelo git)
+node -e "console.log(require('crypto').randomBytes(64).toString('hex'))"   # cole o resultado como JWT_SECRET no .env
 npm run seed                    # usuário demo + 8 hábitos + ~500 check-ins
 npm run dev                     # API em http://localhost:8000
 
 cd ../frontend
 npm install
+Copy-Item .env.example .env     # VITE_API_URL já aponta para http://localhost:8000/api
 npm run dev                     # app em http://localhost:5173
 ```
+
+> Os arquivos `.env` não vão para o git (veja `.gitignore`); o `.env.example` de cada pasta mostra o que preencher.
 
 ## Login demo (seed)
 
