@@ -112,6 +112,71 @@ const main = async () => {
   r = await req("GET", `/water/history/${habitId}?days=30`, { token });
   check("GET /water/history", r.status === 200 && r.data?.days?.length === 30 && r.data?.goal === 4000);
 
+  r = await req("PUT", `/habits/${habitId}`, { token, body: { tracksWorkouts: true } });
+  check("PUT /habits/:id tracksWorkouts", r.status === 200 && r.data?.tracksWorkouts === true);
+
+  r = await req("POST", "/exercises", { token, body: { name: "Supino Reto", muscleGroup: "Peito" } });
+  check("POST /exercises", r.status === 201 && r.data?._id);
+  const exerciseId = r.data?._id;
+
+  r = await req("POST", "/exercises", { token, body: { name: "supino reto", muscleGroup: "Peito" } });
+  check("POST /exercises duplicado → 409", r.status === 409);
+
+  r = await req("POST", "/workouts", {
+    token,
+    body: { habitId, name: "Peito", exercises: [{ exerciseId, sets: 3, reps: 8 }] },
+  });
+  check("POST /workouts", r.status === 201 && r.data?.exercises?.length === 1);
+  const workoutId = r.data?._id;
+
+  r = await req("POST", "/workouts/logs", { token, body: { workoutId } });
+  check(
+    "POST /workouts/logs (rascunho)",
+    r.status === 201 && r.data?.log?.status === "in_progress" && r.data?.log?.exercises?.[0]?.sets?.length === 3
+  );
+  const workoutLogId = r.data?.log?._id;
+
+  r = await req("POST", "/workouts/logs", { token, body: { workoutId } });
+  check("rascunho duplicado → 409 com logId", r.status === 409 && r.data?.logId === workoutLogId);
+
+  r = await req("PUT", `/workouts/logs/${workoutLogId}`, {
+    token,
+    body: {
+      exercises: [
+        {
+          exerciseId,
+          sets: [
+            { weight: 40, reps: 8, done: true },
+            { weight: 40, reps: 8, done: true },
+            { weight: 40, reps: 8, done: true },
+          ],
+        },
+      ],
+    },
+  });
+  check("PUT /workouts/logs (autosave)", r.status === 200 && r.data?.log?.exercises?.[0]?.sets?.[0]?.weight === 40);
+
+  r = await req("POST", `/workouts/logs/${workoutLogId}/complete`, { token });
+  check("POST complete marca o hábito", r.status === 200 && r.data?.log?.status === "completed" && !!r.data?.habitLog?._id);
+
+  r = await req("GET", "/logs/today", { token });
+  check("hábito marcado pelo treino", r.status === 200 && r.data.some((l) => String(l.habitId) === habitId));
+
+  r = await req("GET", "/workouts/logs", { token });
+  check(
+    "GET /workouts/logs (volume/duração)",
+    r.status === 200 && r.data.length === 1 && r.data[0].volume === 960 && r.data[0].setCount === 3
+  );
+
+  r = await req("GET", `/workouts/today?habitId=${habitId}`, { token });
+  check("GET /workouts/today", r.status === 200 && r.data?.completed?.length === 1 && r.data?.draft === null);
+
+  r = await req("POST", `/workouts/logs/${workoutLogId}/reopen`, { token });
+  check("POST reopen", r.status === 200 && r.data?.log?.status === "in_progress");
+
+  r = await req("DELETE", `/workouts/logs/${workoutLogId}`, { token });
+  check("DELETE /workouts/logs/:id", r.status === 200 && r.data?.message === "Deleted");
+
   r = await req("GET", "/ai/morning", { token });
   check("GET /ai/morning", r.status === 200 && typeof r.data?.content === "string" && r.data.content.length > 0, detail(r));
   await sleep(4000);
