@@ -1,4 +1,6 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import { useNavigate } from "react-router-dom";
+import api from "../api/axios.js";
 import TemplatesTab from "../components/TemplatesTab.jsx";
 import ExercisesTab from "../components/ExercisesTab.jsx";
 import WorkoutHistoryTab from "../components/WorkoutHistoryTab.jsx";
@@ -10,7 +12,33 @@ const TABS = [
 ];
 
 export default function Workouts() {
+  const navigate = useNavigate();
   const [tab, setTab] = useState("templates");
+  const [draft, setDraft] = useState(null);
+
+  useEffect(() => {
+    let alive = true;
+    (async () => {
+      try {
+        const res = await api.get("/workouts/logs/active");
+        if (!alive) return;
+        const active = res.data.draft;
+        if (!active) return;
+        const detail = await api.get(`/workouts/logs/${active._id}`).catch(() => null);
+        if (!alive) return;
+        setDraft({
+          _id: active._id,
+          workoutName: active.workoutName || detail?.data?.log?.workoutName || "Treino",
+        });
+      } catch {
+        if (alive) setDraft(null);
+      }
+    })();
+    return () => {
+      alive = false;
+    };
+  }, []);
+
   return (
     <div className="space-y-6 animate-fade-in">
       <div>
@@ -19,6 +47,20 @@ export default function Workouts() {
           Seus treinos de força, séries e cargas.
         </p>
       </div>
+      {draft && (
+        <div className="card p-4 flex items-center justify-between gap-3">
+          <div className="min-w-0 truncate">
+            Treino em andamento:{" "}
+            <span className="font-medium">{draft.workoutName}</span>
+          </div>
+          <button
+            className="btn-primary shrink-0"
+            onClick={() => navigate(`/workouts/logs/${draft._id}`)}
+          >
+            Retomar treino
+          </button>
+        </div>
+      )}
       <div className="flex gap-1 border-b divider">
         {TABS.map((t) => (
           <button
