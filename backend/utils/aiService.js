@@ -9,7 +9,7 @@ export const getClient = () => {
   return client;
 };
 
-const modelName = () => process.env.GEMINI_MODEL || "gemini-3.8-flash";
+const modelName = () => process.env.GEMINI_MODEL || "gemini-3.1-flash-lite";
 
 export const parseJson = (text) => {
   try {

@@ -5,7 +5,7 @@ Clone do projeto do vídeo **"Build a Full-Stack AI-Powered Habit Tracker App"**
 ## Stack
 
 - **Frontend:** React 19, Vite, Tailwind CSS 4, Recharts, React Router (boilerplate do canal)
-- **Backend:** Node.js, Express, MongoDB (Mongoose), JWT (`jsonwebtoken` + `bcryptjs`), Google Gemini (`@google/genai`; modelo configurável em `GEMINI_MODEL`, padrão `gemini-3.8-flash`)
+- **Backend:** Node.js, Express, MongoDB (Mongoose), JWT (`jsonwebtoken` + `bcryptjs`), Google Gemini (`@google/genai`; modelo configurável em `GEMINI_MODEL`, padrão `gemini-3.1-flash-lite`)
 - **Banco:** MongoDB 8 em Docker (porta local 27018)
 
 ## Pré-requisitos
@@ -66,7 +66,7 @@ As 5 features de IA (relatório semanal, sugestão de hábitos, plano de recuper
 | `MONGO_URI` | `mongodb://localhost:27018/ai-habit-tracker` |
 | `JWT_SECRET` | gerado localmente (`crypto.randomBytes(64).toString("hex")`) |
 | `GEMINI_API_KEY` | vazio (IA desativada) |
-| `GEMINI_MODEL` | `gemini-3.8-flash` |
+| `GEMINI_MODEL` | `gemini-3.1-flash-lite` |
 | `CLIENT_URL` | `http://localhost:5173` |
 
 `frontend/.env`:
