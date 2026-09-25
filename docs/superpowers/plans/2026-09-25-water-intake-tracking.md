@@ -612,6 +612,21 @@ test("DELETE /logs on a water habit clears entries and completion", async () => 
   assert.equal(today.body.items[0].completed, false);
 });
 
+test("concurrent POST /logs creates a single goal-sized entry", async () => {
+  const { token } = await registerUser();
+  const habit = await createHabit(token);
+  const [a, b] = await Promise.all([
+    request(app).post("/api/logs").set(auth(token)).send({ habitId: habit._id }),
+    request(app).post("/api/logs").set(auth(token)).send({ habitId: habit._id }),
+  ]);
+  assert.equal(a.status, 201);
+  assert.equal(b.status, 201);
+  const today = await request(app).get("/api/water/today").set(auth(token));
+  assert.equal(today.body.items[0].total, 4000);
+  const logs = await request(app).get("/api/logs/today").set(auth(token));
+  assert.equal(logs.body.length, 1);
+});
+
 test("undo removes the calendar's goal-sized entry", async () => {
   const { token } = await registerUser();
   const habit = await createHabit(token);
@@ -642,12 +657,25 @@ import { reconcileWaterDay } from "../utils/waterService.js";
 Em `createLog`, depois de `const habit = await Habit.findOne({ _id: habitId, userId: req.user._id });` e do 404, inserir o branch:
 ```js
   if (isWaterHabit(habit)) {
-    const existing = await HabitLog.findOne({
-      userId: req.user._id,
-      habitId,
-      completedDate,
-    });
-    if (existing) return res.status(201).json(existing);
+    let claim;
+    try {
+      claim = await HabitLog.updateOne(
+        { userId: req.user._id, habitId, completedDate },
+        { $setOnInsert: { userId: req.user._id, habitId, completedDate } },
+        { upsert: true }
+      );
+    } catch (err) {
+      if (err.code !== 11000) throw err;
+      claim = { upsertedCount: 0 };
+    }
+    if (!claim.upsertedCount) {
+      const existing = await HabitLog.findOne({
+        userId: req.user._id,
+        habitId,
+        completedDate,
+      });
+      return res.status(201).json(existing);
+    }
     await WaterEntry.create({
       userId: req.user._id,
       habitId,
