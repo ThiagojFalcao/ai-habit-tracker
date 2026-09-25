@@ -139,6 +139,7 @@ Formato do log:
 - Rotas em `App.jsx` (bloco protegido): `/workouts` e `/workouts/logs/:logId`.
 
 ### 5.2 Página `/workouts` — 3 abas (PT-BR)
+- **Banner de rascunho** (acima das abas, quando existe): `GET /workouts/logs/active` → "Treino em andamento: {nome}" com **Retomar treino** e **Descartar** (confirmação → `DELETE /workouts/logs/:id`). Garante acesso ao rascunho mesmo com a flag `tracksWorkouts` desligada.
 - **Treinos**: grid de `WorkoutCard` (nome, chip do hábito, "N exercícios", botão **Iniciar treino**, menu editar/arquivar/excluir). "+ Novo treino" → `WorkoutForm` (modal). Excluir template com histórico → mensagem sugerindo arquivar.
 - **Histórico**: lista agrupada por data (Hoje/Ontem/dd/mm), item expansível (acordeão): cabeçalho com nome, hora, **duração**, **volume (kg)**, nº de séries/exercícios; expandido, cada exercício com "35 kg × 8" série a série. Filtro por hábito.
 - **Exercícios**: gestão da biblioteca (lista por grupo muscular, criar/editar/arquivar/excluir com 409 → sugerir arquivar).
@@ -152,10 +153,11 @@ Formato do log:
 - Card por exercício: dica "Última vez: 35 kg × 8" (`hints`), linhas de série com peso (kg, `inputMode="decimal"`) e reps + toggle de concluída; "+ série", remover série/exercício; "+ exercício" no fim (picker).
 - **Autosave com debounce (~1 s)** a cada mudança + indicador "Salvando… / Salvo / Não salvo" (nova tentativa na próxima mudança).
 - Concluir → `celebrate()` (confete) e volta ao Dashboard; log já concluído → modo leitura com **Reabrir**.
-- Erros inline (padrão do app: sem toasts).
+- **Descartar treino** (secundário destrutivo, ao lado de Concluir): confirmação ("Descartar este treino? As séries preenchidas serão perdidas.") → `DELETE /workouts/logs/:id` → Dashboard. O **X** continua apenas voltando (rascunho preservado).
+- Erros inline (padrão do app: sem toasts); o 400 de "concluir sem série feita" é traduzido no client (PT-BR).
 
 ### 5.5 Dashboard
-- `WorkoutHabitCard` (padrão do `WaterHabitCard`) para hábitos com `tracksWorkouts`: treinos de hoje (nome + volume), **"Registrar treino"** (modal com templates → `POST /logs` → navega ao treino ativo) ou **"Retomar treino"** (rascunho), link "Ver histórico".
+- `WorkoutHabitCard` (padrão do `WaterHabitCard`) para hábitos com `tracksWorkouts`: treinos de hoje (nome + volume), **"Registrar treino"** (modal com templates → `POST /logs` → navega ao treino ativo) ou **"Retomar treino"** (rascunho; o descarte fica na tela do treino e no banner de `/workouts`), link "Ver histórico".
 - `loadAll` inclui `GET /workouts/today` para esses hábitos (como `water/today`).
 
 ### 5.6 Detalhe do hábito e formulário
