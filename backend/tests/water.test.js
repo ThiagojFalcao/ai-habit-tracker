@@ -231,3 +231,33 @@ test("undo removes the calendar's goal-sized entry", async () => {
   const logs = await request(app).get("/api/logs/today").set(auth(token));
   assert.equal(logs.body.length, 0);
 });
+
+test("changing the water goal reconciles today only", async () => {
+  const { token } = await registerUser();
+  const habit = await createHabit(token);
+  const yesterday = toDateKey(subDays(new Date(), 1));
+  await request(app).post("/api/water").set(auth(token)).send({ habitId: habit._id, amount: 4000, date: yesterday });
+  await request(app).post("/api/water").set(auth(token)).send({ habitId: habit._id, amount: 4200 });
+
+  const put = await request(app).put(`/api/habits/${habit._id}`).set(auth(token)).send({ waterGoal: 5000 });
+  assert.equal(put.status, 200);
+  assert.equal(put.body.waterGoal, 5000);
+
+  const logs = await request(app)
+    .get(`/api/logs/range?start=${yesterday}&end=${toDateKey()}`)
+    .set(auth(token));
+  assert.deepEqual(logs.body.map((l) => l.completedDate), [yesterday]);
+
+  const invalid = await request(app).put(`/api/habits/${habit._id}`).set(auth(token)).send({ waterGoal: 3000 });
+  assert.equal(invalid.status, 400);
+});
+
+test("deleting a water habit cascades entries and logs", async () => {
+  const { token } = await registerUser();
+  const habit = await createHabit(token);
+  await request(app).post("/api/water").set(auth(token)).send({ habitId: habit._id, amount: 4000 });
+  const del = await request(app).delete(`/api/habits/${habit._id}`).set(auth(token));
+  assert.equal(del.status, 200);
+  assert.equal(await WaterEntry.countDocuments({ habitId: habit._id }), 0);
+  assert.equal(await HabitLog.countDocuments({ habitId: habit._id }), 0);
+});

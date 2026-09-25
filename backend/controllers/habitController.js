@@ -1,9 +1,13 @@
 import Habit from "../models/Habit.js";
 import HabitLog from "../models/HabitLog.js";
+import WaterEntry from "../models/WaterEntry.js";
+import { isWaterHabit } from "../utils/water.js";
+import { reconcileWaterDay } from "../utils/waterService.js";
+import { toDateKey } from "../utils/dateHelpers.js";
 
 const pickFields = (body) => {
-  const { name, description, category, frequency, targetDays, color, icon } = body;
-  return { name, description, category, frequency, targetDays, color, icon };
+  const { name, description, category, frequency, targetDays, color, icon, waterGoal } = body;
+  return { name, description, category, frequency, targetDays, color, icon, waterGoal };
 };
 
 export const listHabits = async (req, res) => {
@@ -34,12 +38,16 @@ export const updateHabit = async (req, res) => {
   const fields = Object.fromEntries(
     Object.entries(pickFields(req.body)).filter(([, v]) => v !== undefined)
   );
+  const before = await Habit.findOne({ _id: req.params.id, userId: req.user._id });
+  if (!before) return res.status(404).json({ message: "Habit not found" });
   const habit = await Habit.findOneAndUpdate(
     { _id: req.params.id, userId: req.user._id },
     fields,
     { new: true, runValidators: true }
   );
-  if (!habit) return res.status(404).json({ message: "Habit not found" });
+  if (isWaterHabit(habit) && fields.waterGoal !== undefined && before.waterGoal !== habit.waterGoal) {
+    await reconcileWaterDay(req.user._id, habit, toDateKey());
+  }
   res.json(habit);
 };
 
@@ -54,6 +62,9 @@ export const toggleArchive = async (req, res) => {
 export const deleteHabit = async (req, res) => {
   const habit = await Habit.findOneAndDelete({ _id: req.params.id, userId: req.user._id });
   if (!habit) return res.status(404).json({ message: "Habit not found" });
-  await HabitLog.deleteMany({ habitId: habit._id });
+  await Promise.all([
+    HabitLog.deleteMany({ habitId: habit._id }),
+    WaterEntry.deleteMany({ habitId: habit._id }),
+  ]);
   res.json({ message: "Deleted" });
 };

@@ -100,3 +100,13 @@ test("WaterEntry validates amount range and integer", async () => {
     );
   }
 });
+
+test("Habit waterGoal defaults to 4000 and enforces 4000-8000", async () => {
+  const userId = new mongoose.Types.ObjectId();
+  const habit = await Habit.create({ userId, name: "Water", icon: "💧" });
+  assert.equal(habit.waterGoal, 4000);
+  await assert.rejects(Habit.create({ userId, name: "Water", icon: "💧", waterGoal: 3000 }), /validation/i);
+  await assert.rejects(Habit.create({ userId, name: "Water", icon: "💧", waterGoal: 9000 }), /validation/i);
+  const custom = await Habit.create({ userId, name: "Water", icon: "💧", waterGoal: 6000 });
+  assert.equal(custom.waterGoal, 6000);
+});
