@@ -101,6 +101,17 @@ const main = async () => {
   r = await req("DELETE", "/logs", { token, body: { habitId, date: today } });
   check("DELETE /logs", r.status === 200 && r.data?.message === "Unmarked");
 
+  r = await req("POST", "/water", { token, body: { habitId, amount: 500 } });
+  check("POST /water", r.status === 201 && r.data?.total === 500 && r.data?.completed === false);
+  r = await req("POST", "/water", { token, body: { habitId, amount: 3500 } });
+  check("POST /water acumula", r.status === 201 && r.data?.total === 4000 && r.data?.completed === true);
+  r = await req("GET", "/water/today", { token });
+  check("GET /water/today", r.status === 200 && r.data?.items?.[0]?.total === 4000);
+  r = await req("DELETE", "/water/last", { token, body: { habitId } });
+  check("DELETE /water/last", r.status === 200 && r.data?.total === 500 && r.data?.completed === false);
+  r = await req("GET", `/water/history/${habitId}?days=30`, { token });
+  check("GET /water/history", r.status === 200 && r.data?.days?.length === 30 && r.data?.goal === 4000);
+
   r = await req("GET", "/ai/morning", { token });
   check("GET /ai/morning", r.status === 200 && typeof r.data?.content === "string" && r.data.content.length > 0, detail(r));
   await sleep(4000);

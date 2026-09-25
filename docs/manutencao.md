@@ -42,6 +42,7 @@ navegador → Vite (5173) → axios (Bearer JWT) → Express (8000) → Mongoose
 | Campo novo em hábito | `backend/models/Habit.js` → whitelist em `backend/controllers/habitController.js` (`pickFields`) → `frontend/src/components/HabitForm.jsx` (+ exibição onde precisar). Campo novo é opcional no Mongo — docs antigos ficam sem ele |
 | Nova rota de API | `backend/models` → `backend/controllers` → `backend/routes` → montar em `backend/app.js` → adicionar teste em `backend/tests/` |
 | Regra de streak / datas | `backend/utils/dateHelpers.js` — **espelhado** em `frontend/src/utils/dateHelpers.js` (o frontend calcula streaks localmente); mudou um, confira o outro |
+| Água (hábito com 💧) | backend: `utils/water.js`, `utils/waterService.js`, `models/WaterEntry.js`, `controllers/waterController.js`, `routes/water.js`, `scripts/migrate-water.js` · frontend: `components/WaterHabitCard.jsx`, `WaterIntakeChart.jsx`, `utils/constants.js` (`WATER` espelhado) |
 | Prompt / modelo de IA | prompts: `backend/utils/aiService.js` · modelo: `backend/.env` (`GEMINI_MODEL`) — reiniciar o backend depois |
 | O que a IA "vê" | `backend/controllers/aiController.js` (`buildHabitContext` monta o contexto por feature) |
 | Dados demo | `backend/scripts/seed.js` — ⚠️ **`npm run seed` apaga TODOS os dados** |
@@ -58,8 +59,8 @@ docker compose up -d          # banco (uma vez; fica no ar)
 # terminal 2: cd frontend; npm run dev     → app em :5173 (hot-reload)
 
 # depois de mexer:
-cd backend; npm test           # 54 testes (precisa do Docker no ar)
-npm run smoke                  # 27 checks (precisa do servidor no ar)
+cd backend; npm test           # 75 testes (precisa do Docker no ar)
+npm run smoke                  # 32 checks (precisa do servidor no ar)
 
 git add . ; git commit -m "feat: descreva a mudanca"
 ```
@@ -71,8 +72,9 @@ git add . ; git commit -m "feat: descreva a mudanca"
 
 | Comando | Cobre | Precisa |
 |---|---|---|
-| `npm test` (backend) | 54 testes: models, auth, habits, logs, IA (degradação), errorHandler, seed | Docker no ar (usa o banco `ai-habit-tracker-test` no mesmo Mongo da 27018) |
-| `npm run smoke` | Contrato completo contra o servidor real (27 checks, inclui IA) | Servidor rodando + Docker |
+| `npm test` (backend) | 75 testes: models, auth, habits, logs, água (endpoints, reconciliação, migração), IA (degradação), errorHandler, seed | Docker no ar (usa o banco `ai-habit-tracker-test` no mesmo Mongo da 27018) |
+| `npm run smoke` | Contrato completo contra o servidor real (32 checks, inclui água e IA) | Servidor rodando + Docker |
+| `node scripts/migrate-water.js` (backend) | Backfill único: cria `WaterEntry` de meta para logs antigos de hábitos 💧 (`{ entriesCreated: n }`; idempotente) | Docker no ar (usa o banco de dev) |
 | E2E manual | Registrar/logar, check-off com confete, heatmap, Insights, Stats, chat | Navegador em `localhost:5173` |
 
 O contrato da API está pinado em `backend/tests/` + na spec (§4.3). O mock antigo do frontend foi removido — se precisar conferir o contrato original, veja `docs/design/spec.md`.
@@ -109,6 +111,7 @@ docker exec ai-habit-tracker-mongo mongorestore --archive=/tmp/backup.gz --drop
 | Sugestões | 30 dias + respostas do wizard (objetivos, horário produtivo, dificuldades) |
 | Recuperação | Só o hábito em questão: nome, categoria, recorde, total |
 | Motivação matinal | 7 dias + nome do usuário |
+| Hábitos de água | total, média/dia, meta, dias que bateu a meta, melhor dia + série diária (MM-DD:ml) do período |
 
 - **A IA nunca vê:** senha, e-mail, token, outros usuários, dados fora do período. Não acessa o banco; só recebe o texto acima. (No tier grátis do Google, o texto enviado pode ser usado para melhoria dos serviços deles.)
 
@@ -148,6 +151,10 @@ Get-NetTCPConnection -LocalPort 5173 -State Listen | ForEach-Object { Stop-Proce
 6. Identidade git do repo é placeholder — ajuste antes de se importar com atribuição.
 7. `--test-concurrency=1` é intencional (evita corrida no banco de teste).
 8. O frontend (boilerplate) não tem LICENSE — repo publicado como público por decisão do dono (créditos no README).
+9. O ícone **💧** decide o comportamento do hábito: com ele o card vira contador de água; trocar o ícone desliga o contador (nada é apagado).
+10. `WATER` é **espelhado** no frontend (`frontend/src/utils/constants.js`) — mudou no backend (`backend/utils/water.js`), confira o outro.
+11. Rodar `node scripts/migrate-water.js` **uma vez** no banco de dev para o backfill dos logs antigos de água (idempotente).
+12. Presets de água **250/500/750/1000 ml** e meta default/mínima **4000 ml** (máx. 8000; faixa 4–8 L).
 
 ## 11. Backlog (melhorias adiadas)
 
