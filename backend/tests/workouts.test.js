@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 import mongoose from "mongoose";
 import { subDays } from "date-fns";
 import { app, request, registerUser, connectTestDb, disconnectTestDb, clearDb } from "./helpers.js";
+import Workout from "../models/Workout.js";
 import WorkoutLog from "../models/WorkoutLog.js";
 import { toDateKey } from "../utils/dateHelpers.js";
 
@@ -513,4 +514,20 @@ test("GET /workouts/today separates draft and completed logs", async () => {
   assert.equal(noHabit.status, 400);
   const missing = await request(app).get("/api/workouts/today?habitId=64b000000000000000000000").set(auth(token));
   assert.equal(missing.status, 404);
+});
+
+test("deleting a training habit cascades workouts and logs", async () => {
+  const { token } = await registerUser();
+  const habit = await createHabit(token);
+  const exercise = await createExercise(token);
+  const workout = (await createWorkout(token, habit._id, [{ exerciseId: exercise._id, sets: 1, reps: 8 }])).body;
+  await completeLogFor(token, habit, workout, exercise._id, [{ weight: 40, reps: 8, done: true }], toDateKey());
+
+  const del = await request(app).delete(`/api/habits/${habit._id}`).set(auth(token));
+  assert.equal(del.status, 200);
+  assert.equal(await Workout.countDocuments({ habitId: habit._id }), 0);
+  assert.equal(await WorkoutLog.countDocuments({ habitId: habit._id }), 0);
+
+  const list = await request(app).get("/api/workouts").set(auth(token));
+  assert.equal(list.body.length, 0);
 });

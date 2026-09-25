@@ -1,6 +1,8 @@
 import Habit from "../models/Habit.js";
 import HabitLog from "../models/HabitLog.js";
 import WaterEntry from "../models/WaterEntry.js";
+import Workout from "../models/Workout.js";
+import WorkoutLog from "../models/WorkoutLog.js";
 import { isWaterHabit } from "../utils/water.js";
 import { reconcileWaterDay } from "../utils/waterService.js";
 import { toDateKey } from "../utils/dateHelpers.js";
@@ -65,6 +67,8 @@ export const deleteHabit = async (req, res) => {
   await Promise.all([
     HabitLog.deleteMany({ habitId: habit._id }),
     WaterEntry.deleteMany({ habitId: habit._id }),
+    Workout.deleteMany({ habitId: habit._id }),
+    WorkoutLog.deleteMany({ habitId: habit._id }),
   ]);
   res.json({ message: "Deleted" });
 };
