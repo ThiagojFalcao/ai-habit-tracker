@@ -182,7 +182,22 @@ export const reopenLog = async (req, res) => {
     });
   log.status = "in_progress";
   log.completedAt = null;
-  await log.save();
+  try {
+    await log.save();
+  } catch (err) {
+    if (err.code === 11000) {
+      const draft = await WorkoutLog.findOne({
+        userId: req.user._id,
+        habitId: log.habitId,
+        status: "in_progress",
+      });
+      return res.status(409).json({
+        message: "A workout is already in progress for this habit",
+        logId: draft?._id,
+      });
+    }
+    throw err;
+  }
   res.json({ log });
 };
 
