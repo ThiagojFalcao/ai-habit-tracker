@@ -11,6 +11,7 @@ export default function HabitForm({ initial, onSubmit, onCancel, submitting }) {
     color: initial?.color || COLORS[0],
     icon: initial?.icon || ICONS[0],
     waterGoal: initial?.waterGoal || WATER.goal,
+    tracksWorkouts: initial?.tracksWorkouts || false,
   });
 
   const set = (k) => (e) =>
@@ -26,6 +27,7 @@ export default function HabitForm({ initial, onSubmit, onCancel, submitting }) {
       ...form,
       targetDays: Number(form.targetDays),
       waterGoal: form.icon === WATER.icon ? Number(form.waterGoal) : undefined,
+      tracksWorkouts: form.tracksWorkouts,
     });
   };
 
@@ -110,6 +112,21 @@ export default function HabitForm({ initial, onSubmit, onCancel, submitting }) {
           />
         </div>
       )}
+
+      <label className="flex items-start gap-3 p-3 rounded-xl glass cursor-pointer hover:bg-[var(--surface-hover)]">
+        <input
+          type="checkbox"
+          checked={form.tracksWorkouts}
+          onChange={(e) => setForm((f) => ({ ...f, tracksWorkouts: e.target.checked }))}
+          className="mt-1 accent-brand-600"
+        />
+        <div>
+          <div className="text-sm font-medium">Registrar treinos neste hábito</div>
+          <div className="text-xs text-faint">
+            O card no dashboard ganha "Registrar treino" (séries, reps e cargas). Concluir um treino marca o hábito do dia.
+          </div>
+        </div>
+      </label>
 
       <div>
         <label className="label">Icon</label>

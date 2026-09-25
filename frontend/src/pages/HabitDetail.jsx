@@ -43,6 +43,7 @@ export default function HabitDetail() {
   const [submitting, setSubmitting] = useState(false);
   const [savingKey, setSavingKey] = useState(null);
   const [waterHistory, setWaterHistory] = useState(null);
+  const [workoutHistory, setWorkoutHistory] = useState(null);
 
   const refreshWaterHistory = useCallback(
     async (isAlive = () => true) => {
@@ -51,6 +52,18 @@ export default function HabitDetail() {
         if (isAlive()) setWaterHistory(wh.data);
       } catch {
         if (isAlive()) setWaterHistory(null);
+      }
+    },
+    [habitId]
+  );
+
+  const refreshWorkoutHistory = useCallback(
+    async (isAlive = () => true) => {
+      try {
+        const res = await api.get(`/workouts/logs?habitId=${habitId}&limit=5`);
+        if (isAlive()) setWorkoutHistory(res.data);
+      } catch {
+        if (isAlive()) setWorkoutHistory([]);
       }
     },
     [habitId]
@@ -68,6 +81,9 @@ export default function HabitDetail() {
         if (isWaterHabit(res.data.habit)) {
           await refreshWaterHistory(() => alive);
         }
+        if (res.data.habit.tracksWorkouts) {
+          await refreshWorkoutHistory(() => alive);
+        }
       } catch {
         if (alive) setNotFound(true);
       } finally {
@@ -77,7 +93,7 @@ export default function HabitDetail() {
     return () => {
       alive = false;
     };
-  }, [habitId, refreshWaterHistory]);
+  }, [habitId, refreshWaterHistory, refreshWorkoutHistory]);
 
   const habit = data?.habit;
   const dates = useMemo(() => data?.completedDates || [], [data]);
@@ -169,6 +185,11 @@ export default function HabitDetail() {
         await refreshWaterHistory();
       } else {
         setWaterHistory(null);
+      }
+      if (res.data.tracksWorkouts) {
+        await refreshWorkoutHistory();
+      } else {
+        setWorkoutHistory(null);
       }
       setFormOpen(false);
     } finally {
@@ -384,6 +405,37 @@ export default function HabitDetail() {
             goal={waterHistory.goal}
             color={habit.color}
           />
+        </div>
+      )}
+
+      {habit.tracksWorkouts && workoutHistory && (
+        <div>
+          <div className="text-sm font-medium mb-2">Treinos</div>
+          {workoutHistory.length === 0 ? (
+            <div className="card p-4 text-sm text-muted">
+              Nenhum treino registrado ainda. Use "Registrar treino" no dashboard.
+            </div>
+          ) : (
+            <div className="card divide-y divide-[var(--divider)]">
+              {workoutHistory.map((log) => (
+                <div key={log._id} className="flex items-center justify-between gap-3 px-4 py-3 text-sm">
+                  <div className="min-w-0">
+                    <div className="font-medium truncate">{log.workoutName}</div>
+                    <div className="text-xs text-muted">{log.date.split("-").reverse().join("/")}</div>
+                  </div>
+                  <div className="text-right text-xs text-muted shrink-0">
+                    <div className="font-medium text-soft">{log.volume} kg</div>
+                    <div>
+                      {log.setCount} séries · {log.durationMin} min
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+          <button className="btn-secondary mt-3" onClick={() => navigate("/workouts")}>
+            Ver histórico completo
+          </button>
         </div>
       )}
 
