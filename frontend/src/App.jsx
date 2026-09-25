@@ -8,6 +8,7 @@ import HabitDetail from "./pages/HabitDetail.jsx";
 import Weekly from "./pages/Weekly.jsx";
 import Insights from "./pages/Insights.jsx";
 import Stats from "./pages/Stats.jsx";
+import Workouts from "./pages/Workouts.jsx";
 import AppLayout from "./components/AppLayout.jsx";
 import ProtectedRoute from "./components/ProtectedRoute.jsx";
 
@@ -31,6 +32,7 @@ export default function App() {
         <Route path="/weekly" element={<Weekly />} />
         <Route path="/insights" element={<Insights />} />
         <Route path="/stats" element={<Stats />} />
+        <Route path="/workouts" element={<Workouts />} />
       </Route>
 
       <Route path="*" element={<Navigate to="/" replace />} />

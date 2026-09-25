@@ -5,6 +5,7 @@ import {
   CalendarDays,
   Brain,
   BarChart3,
+  Dumbbell,
   Sparkles,
   LogOut,
   Sun,
@@ -51,6 +52,7 @@ export default function MobileNav() {
           { to: "/weekly", label: "Weekly", icon: CalendarDays },
           { to: "/insights", label: "Insights", icon: Brain },
           { to: "/stats", label: "Stats", icon: BarChart3 },
+          { to: "/workouts", label: "Treinos", icon: Dumbbell },
         ].map(({ to, label, icon: Icon }) => (
           <NavLink
             key={to}

@@ -48,3 +48,16 @@ export const WATER = {
 };
 
 export const isWaterHabit = (habit) => habit?.icon === WATER.icon;
+
+export const MUSCLE_GROUPS = [
+  "Peito",
+  "Costas",
+  "Ombros",
+  "Bíceps",
+  "Tríceps",
+  "Pernas",
+  "Glúteos",
+  "Panturrilha",
+  "Abdômen",
+  "Outro",
+];

@@ -5,6 +5,7 @@ import {
   CalendarDays,
   Brain,
   BarChart3,
+  Dumbbell,
   LogOut,
   Settings,
   Sparkles,
@@ -23,6 +24,7 @@ const nav = [
   { to: "/weekly", label: "Weekly", icon: CalendarDays },
   { to: "/insights", label: "Insights", icon: Brain },
   { to: "/stats", label: "Statistics", icon: BarChart3 },
+  { to: "/workouts", label: "Treinos", icon: Dumbbell },
 ];
 
 export default function Sidebar() {
