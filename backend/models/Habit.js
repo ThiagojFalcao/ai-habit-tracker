@@ -14,6 +14,7 @@ const habitSchema = new mongoose.Schema(
     frequency: { type: String, enum: ["daily", "weekly"], default: "daily" },
     targetDays: { type: Number, min: 1, max: 7, default: 7 },
     waterGoal: { type: Number, min: 4000, max: 8000, default: 4000 },
+    tracksWorkouts: { type: Boolean, default: false },
     color: { type: String, default: "#6366f1" },
     icon: { type: String, default: "🎯" },
     isArchived: { type: Boolean, default: false },

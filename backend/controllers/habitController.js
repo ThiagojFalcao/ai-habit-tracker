@@ -6,8 +6,8 @@ import { reconcileWaterDay } from "../utils/waterService.js";
 import { toDateKey } from "../utils/dateHelpers.js";
 
 const pickFields = (body) => {
-  const { name, description, category, frequency, targetDays, color, icon, waterGoal } = body;
-  return { name, description, category, frequency, targetDays, color, icon, waterGoal };
+  const { name, description, category, frequency, targetDays, color, icon, waterGoal, tracksWorkouts } = body;
+  return { name, description, category, frequency, targetDays, color, icon, waterGoal, tracksWorkouts };
 };
 
 export const listHabits = async (req, res) => {

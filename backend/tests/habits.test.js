@@ -81,6 +81,25 @@ test("delete removes the habit and cascades its logs", async () => {
   assert.equal(await HabitLog.countDocuments({ habitId: h._id }), 0);
 });
 
+test("PUT /habits/:id toggles tracksWorkouts", async () => {
+  const { token } = await registerUser();
+  const created = await request(app)
+    .post("/api/habits")
+    .set(auth(token))
+    .send({ name: "Treino", icon: "💪" });
+  assert.equal(created.body.tracksWorkouts, false);
+
+  const updated = await request(app)
+    .put(`/api/habits/${created.body._id}`)
+    .set(auth(token))
+    .send({ tracksWorkouts: true });
+  assert.equal(updated.status, 200);
+  assert.equal(updated.body.tracksWorkouts, true);
+
+  const fetched = await request(app).get("/api/habits").set(auth(token));
+  assert.equal(fetched.body[0].tracksWorkouts, true);
+});
+
 test("users cannot see or modify other users' habits", async () => {
   const a = await registerUser();
   const b = await registerUser();

@@ -138,6 +138,14 @@ test("Workout validates sets and reps range", async () => {
   );
 });
 
+test("Habit tracksWorkouts defaults to false", async () => {
+  const userId = new mongoose.Types.ObjectId();
+  const habit = await Habit.create({ userId, name: "Treino" });
+  assert.equal(habit.tracksWorkouts, false);
+  const flagged = await Habit.create({ userId, name: "Treino 2", tracksWorkouts: true });
+  assert.equal(flagged.tracksWorkouts, true);
+});
+
 test("WorkoutLog accepts empty sets while drafting and rejects bad numbers", async () => {
   const userId = new mongoose.Types.ObjectId();
   const habitId = new mongoose.Types.ObjectId();
