@@ -5,7 +5,7 @@ Clone do projeto do vídeo **"Build a Full-Stack AI-Powered Habit Tracker App"**
 ## Stack
 
 - **Frontend:** React 19, Vite, Tailwind CSS 4, Recharts, React Router (boilerplate do canal)
-- **Backend:** Node.js, Express, MongoDB (Mongoose), JWT (`jsonwebtoken` + `bcryptjs`), Google Gemini 2.5 Flash (`@google/genai`)
+- **Backend:** Node.js, Express, MongoDB (Mongoose), JWT (`jsonwebtoken` + `bcryptjs`), Google Gemini (`@google/genai`; modelo configurável em `GEMINI_MODEL`, padrão `gemini-3.8-flash`)
 - **Banco:** MongoDB 8 em Docker (porta local 27018)
 
 ## Pré-requisitos
@@ -40,6 +40,8 @@ As 5 features de IA (relatório semanal, sugestão de hábitos, plano de recuper
 2. Coloque em `backend/.env`: `GEMINI_API_KEY=sua_chave`
 3. Reinicie o backend
 
+> Obs.: o tier grátis do Gemini limita ~20 requisições/dia por modelo. Veja seu uso em <https://ai.dev/rate-limit>.
+
 ## Scripts (backend)
 
 | Comando | O que faz |
@@ -59,7 +61,7 @@ As 5 features de IA (relatório semanal, sugestão de hábitos, plano de recuper
 | `MONGO_URI` | `mongodb://localhost:27018/ai-habit-tracker` |
 | `JWT_SECRET` | gerado localmente (`crypto.randomBytes(64).toString("hex")`) |
 | `GEMINI_API_KEY` | vazio (IA desativada) |
-| `GEMINI_MODEL` | `gemini-2.5-flash` |
+| `GEMINI_MODEL` | `gemini-3.8-flash` |
 | `CLIENT_URL` | `http://localhost:5173` |
 
 `frontend/.env`:

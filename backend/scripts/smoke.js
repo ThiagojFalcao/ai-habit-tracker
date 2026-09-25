@@ -1,7 +1,10 @@
 import "dotenv/config";
+import { format } from "date-fns";
 
 const BASE = process.env.SMOKE_URL || "http://localhost:8000/api";
 let failures = 0;
+
+const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
 const check = (name, cond, extra = "") => {
   if (cond) console.log(`  ✔ ${name}`);
@@ -27,8 +30,11 @@ const req = async (method, path, { token, body } = {}) => {
   return { status: res.status, data };
 };
 
+const detail = (r) =>
+  r.status !== 200 ? `status ${r.status}: ${String(r.data?.message ?? "").slice(0, 100)}` : "";
+
 const main = async () => {
-  const today = new Date().toISOString().slice(0, 10);
+  const today = format(new Date(), "yyyy-MM-dd");
   const email = `smoke_${Date.now()}@test.com`;
   console.log(`Smoke: ${BASE}`);
 
@@ -96,19 +102,23 @@ const main = async () => {
   check("DELETE /logs", r.status === 200 && r.data?.message === "Unmarked");
 
   r = await req("GET", "/ai/morning", { token });
-  check("GET /ai/morning", r.status === 200 && typeof r.data?.content === "string" && r.data.content.length > 0);
+  check("GET /ai/morning", r.status === 200 && typeof r.data?.content === "string" && r.data.content.length > 0, detail(r));
+  await sleep(4000);
 
   r = await req("POST", "/ai/weekly-report", { token });
-  check("POST /ai/weekly-report", r.status === 200 && typeof r.data?.content === "string");
+  check("POST /ai/weekly-report", r.status === 200 && typeof r.data?.content === "string" && r.data.content.length > 0, detail(r));
+  await sleep(4000);
 
   r = await req("POST", "/ai/chat", { token, body: { question: "Which day am I most consistent?" } });
-  check("POST /ai/chat", r.status === 200 && typeof r.data?.content === "string");
+  check("POST /ai/chat", r.status === 200 && typeof r.data?.content === "string" && r.data.content.length > 0, detail(r));
+  await sleep(4000);
 
   r = await req("POST", "/ai/suggest-habits", { token, body: { goals: "get fitter", productiveTime: "mornings", struggles: "late night snacks" } });
-  check("POST /ai/suggest-habits", r.status === 200 && r.data?.suggestions?.length === 3 && r.data.suggestions[0]?.name);
+  check("POST /ai/suggest-habits", r.status === 200 && r.data?.suggestions?.length === 3 && r.data.suggestions[0]?.name, detail(r));
+  await sleep(4000);
 
   r = await req("POST", "/ai/recovery-plan", { token, body: { habitId } });
-  check("POST /ai/recovery-plan", r.status === 200 && typeof r.data?.content === "string");
+  check("POST /ai/recovery-plan", r.status === 200 && typeof r.data?.content === "string" && r.data.content.length > 0, detail(r));
 
   r = await req("DELETE", `/habits/${habitId}`, { token });
   check("DELETE /habits/:id", r.status === 200 && r.data?.message === "Deleted");
