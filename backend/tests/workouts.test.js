@@ -575,6 +575,13 @@ test("POST /workouts requires an active owned program", async () => {
     .send({ name: "Peito editado", programId: archivedProgram._id });
   assert.equal(keepEditing.status, 200);
   assert.equal(keepEditing.body.name, "Peito editado");
+
+  const movable = (await createWorkout(token, habit._id, [], "Peito B")).body;
+  const moveToArchived = await request(app)
+    .put(`/api/workouts/${movable._id}`)
+    .set(auth(token))
+    .send({ programId: archivedProgram._id });
+  assert.equal(moveToArchived.status, 400);
 });
 
 test("GET /workouts filters by programId and PUT moves a workout", async () => {

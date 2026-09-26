@@ -50,6 +50,11 @@ test("PUT /programs/:id renames, archives and includes workoutCount", async () =
   assert.equal(renamed.status, 200);
   assert.equal(renamed.body.name, "Mobilidade");
 
+  const invalid = await request(app).put(`/api/programs/${program._id}`).set(auth(token)).send({ name: "   " });
+  assert.equal(invalid.status, 400);
+  const afterInvalid = await request(app).get("/api/programs").set(auth(token));
+  assert.equal(afterInvalid.body.find((p) => p._id === program._id).name, "Mobilidade");
+
   const archived = await request(app).put(`/api/programs/${program._id}`).set(auth(token)).send({ archived: true });
   assert.equal(archived.body.archived, true);
   const active = await request(app).get("/api/programs").set(auth(token));
@@ -71,7 +76,7 @@ test("program routes enforce ownership", async () => {
 test("DELETE /programs/:id is blocked while workouts exist", async () => {
   const { token, user } = await registerUser();
   const program = (await request(app).post("/api/programs").set(auth(token)).send({ name: "Com treinos" })).body;
-  await Workout.create({
+  const active = await Workout.create({
     userId: user._id,
     habitId: new mongoose.Types.ObjectId(),
     programId: program._id,
@@ -81,6 +86,18 @@ test("DELETE /programs/:id is blocked while workouts exist", async () => {
   const blocked = await request(app).delete(`/api/programs/${program._id}`).set(auth(token));
   assert.equal(blocked.status, 409);
   assert.match(blocked.body.message, /Archive it instead/);
+
+  await Workout.create({
+    userId: user._id,
+    habitId: new mongoose.Types.ObjectId(),
+    programId: program._id,
+    name: "Peito arquivado",
+    archived: true,
+    exercises: [],
+  });
+  await Workout.deleteOne({ _id: active._id });
+  const blockedByArchived = await request(app).delete(`/api/programs/${program._id}`).set(auth(token));
+  assert.equal(blockedByArchived.status, 409);
 
   const empty = (await request(app).post("/api/programs").set(auth(token)).send({ name: "Vazio" })).body;
   const del = await request(app).delete(`/api/programs/${empty._id}`).set(auth(token));
