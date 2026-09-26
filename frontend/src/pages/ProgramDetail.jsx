@@ -128,17 +128,24 @@ export default function ProgramDetail() {
           <ArrowLeft size={18} />
         </button>
         <div className="flex-1 min-w-0">
-          <h1 className="text-2xl md:text-3xl font-semibold tracking-tight truncate">{program.name}</h1>
+          <div className="flex flex-wrap items-baseline gap-x-2">
+            <h1 className="min-w-0 text-2xl md:text-3xl font-semibold tracking-tight truncate">{program.name}</h1>
+            {program.archived && (
+              <span className="text-xs text-muted">Programa arquivado — reative para criar ou mover treinos.</span>
+            )}
+          </div>
           <div className="text-xs text-muted mt-0.5">
             {workouts.length} treino{workouts.length === 1 ? "" : "s"}
           </div>
         </div>
-        <button
-          className="btn-primary shrink-0"
-          onClick={() => { setEditing(null); setFormError(""); setFormOpen(true); }}
-        >
-          <Plus size={14} /> Novo treino
-        </button>
+        {!program.archived && (
+          <button
+            className="btn-primary shrink-0"
+            onClick={() => { setEditing(null); setFormError(""); setFormOpen(true); }}
+          >
+            <Plus size={14} /> Novo treino
+          </button>
+        )}
       </div>
 
       {!active.length ? (
