@@ -5,6 +5,7 @@ import { subDays } from "date-fns";
 import { app, request, registerUser, connectTestDb, disconnectTestDb, clearDb } from "./helpers.js";
 import Workout from "../models/Workout.js";
 import WorkoutLog from "../models/WorkoutLog.js";
+import Program from "../models/Program.js";
 import { toDateKey } from "../utils/dateHelpers.js";
 
 before(connectTestDb);
@@ -16,8 +17,16 @@ const createHabit = async (token, body = {}) =>
   (await request(app).post("/api/habits").set(auth(token)).send({ name: "Treino", icon: "💪", tracksWorkouts: true, ...body })).body;
 const createExercise = async (token, name = "Supino Reto") =>
   (await request(app).post("/api/exercises").set(auth(token)).send({ name, muscleGroup: "Peito" })).body;
-const createWorkout = (token, habitId, exercises, name = "Peito") =>
-  request(app).post("/api/workouts").set(auth(token)).send({ name, habitId, exercises });
+const createProgram = async (token, name = "Meus treinos") =>
+  (await request(app).post("/api/programs").set(auth(token)).send({ name })).body;
+
+const createWorkout = async (token, habitId, exercises, name = "Peito", programId) => {
+  const program = programId ? { _id: programId } : await createProgram(token);
+  return request(app)
+    .post("/api/workouts")
+    .set(auth(token))
+    .send({ name, habitId, programId: program._id, exercises });
+};
 
 test("POST /workouts creates a template and lists it with exerciseCount", async () => {
   const { token } = await registerUser();
@@ -530,4 +539,90 @@ test("deleting a training habit cascades workouts and logs", async () => {
 
   const list = await request(app).get("/api/workouts").set(auth(token));
   assert.equal(list.body.length, 0);
+});
+
+test("POST /workouts requires an active owned program", async () => {
+  const { token } = await registerUser();
+  const other = await registerUser();
+  const habit = await createHabit(token);
+  const exercise = await createExercise(token);
+
+  const missing = await request(app)
+    .post("/api/workouts")
+    .set(auth(token))
+    .send({ name: "Peito", habitId: habit._id, exercises: [] });
+  assert.equal(missing.status, 400);
+
+  const foreignProgram = await createProgram(other.token, "Do outro");
+  const foreign = await request(app)
+    .post("/api/workouts")
+    .set(auth(token))
+    .send({ name: "Peito", habitId: habit._id, programId: foreignProgram._id, exercises: [] });
+  assert.equal(foreign.status, 404);
+
+  const archivedProgram = await createProgram(token, "Arquivado");
+  const living = (await createWorkout(token, habit._id, [], "Peito", archivedProgram._id)).body;
+  await request(app).put(`/api/programs/${archivedProgram._id}`).set(auth(token)).send({ archived: true });
+  const archived = await request(app)
+    .post("/api/workouts")
+    .set(auth(token))
+    .send({ name: "Peito", habitId: habit._id, programId: archivedProgram._id, exercises: [] });
+  assert.equal(archived.status, 400);
+
+  const keepEditing = await request(app)
+    .put(`/api/workouts/${living._id}`)
+    .set(auth(token))
+    .send({ name: "Peito editado", programId: archivedProgram._id });
+  assert.equal(keepEditing.status, 200);
+  assert.equal(keepEditing.body.name, "Peito editado");
+});
+
+test("GET /workouts filters by programId and PUT moves a workout", async () => {
+  const { token } = await registerUser();
+  const habit = await createHabit(token);
+  const exercise = await createExercise(token);
+  const programA = await createProgram(token, "Treino p secar");
+  const programB = await createProgram(token, "Mobilidade");
+  const workout = (
+    await createWorkout(token, habit._id, [{ exerciseId: exercise._id, sets: 5, reps: 8 }], "Peito", programA._id)
+  ).body;
+
+  const onlyA = await request(app).get(`/api/workouts?programId=${programA._id}`).set(auth(token));
+  assert.equal(onlyA.body.length, 1);
+  const badId = await request(app).get("/api/workouts?programId=abc").set(auth(token));
+  assert.equal(badId.status, 400);
+
+  const moved = await request(app)
+    .put(`/api/workouts/${workout._id}`)
+    .set(auth(token))
+    .send({ programId: programB._id });
+  assert.equal(moved.status, 200);
+  assert.equal(String(moved.body.programId), String(programB._id));
+  assert.equal(moved.body.exercises.length, 1);
+
+  const onlyB = await request(app).get(`/api/workouts?programId=${programB._id}`).set(auth(token));
+  assert.equal(onlyB.body.length, 1);
+  const noneA = await request(app).get(`/api/workouts?programId=${programA._id}`).set(auth(token));
+  assert.equal(noneA.body.length, 0);
+});
+
+test("deleting a training habit removes its workouts but keeps the program", async () => {
+  const { token } = await registerUser();
+  const habit = await createHabit(token);
+  const exercise = await createExercise(token);
+  const program = await createProgram(token, "Meus treinos");
+  const workout = (
+    await createWorkout(token, habit._id, [{ exerciseId: exercise._id, sets: 1, reps: 8 }], "Peito", program._id)
+  ).body;
+  await completeLogFor(token, habit, workout, exercise._id, [{ weight: 40, reps: 8, done: true }], toDateKey());
+
+  const del = await request(app).delete(`/api/habits/${habit._id}`).set(auth(token));
+  assert.equal(del.status, 200);
+  assert.equal(await Workout.countDocuments({ habitId: habit._id }), 0);
+  assert.equal(await WorkoutLog.countDocuments({ habitId: habit._id }), 0);
+
+  const programs = await request(app).get("/api/programs?includeArchived=true").set(auth(token));
+  assert.equal(programs.body.length, 1);
+  assert.equal(programs.body[0].workoutCount, 0);
+  assert.ok(await Program.exists({ _id: program._id }));
 });

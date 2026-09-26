@@ -84,9 +84,11 @@ test("DELETE /exercises/:id blocks exercises in use and deletes free ones", asyn
   const { token, user } = await registerUser();
   const habitId = new mongoose.Types.ObjectId();
   const exercise = await create(token, { name: "Supino Reto", muscleGroup: "Peito" });
+  const program = (await request(app).post("/api/programs").set(auth(token)).send({ name: "Meus treinos" })).body;
   await Workout.create({
     userId: user._id,
     habitId,
+    programId: program._id,
     name: "Peito",
     exercises: [{ exerciseId: exercise.body._id, sets: 3, reps: 8 }],
   });

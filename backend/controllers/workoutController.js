@@ -1,6 +1,7 @@
 import mongoose from "mongoose";
 import Habit from "../models/Habit.js";
 import Exercise from "../models/Exercise.js";
+import Program from "../models/Program.js";
 import Workout from "../models/Workout.js";
 import { WORKOUT } from "../utils/workout.js";
 
@@ -20,6 +21,17 @@ const resolveTrainingHabit = async (userId, habitId, res) => {
   }
   if (!habit.tracksWorkouts) return badRequest(res, "Habit does not track workouts");
   return habit;
+};
+
+const resolveProgram = async (userId, programId, res) => {
+  if (!mongoose.isValidObjectId(programId)) return badRequest(res, "Invalid programId");
+  const program = await Program.findOne({ _id: programId, userId });
+  if (!program) {
+    res.status(404).json({ message: "Program not found" });
+    return null;
+  }
+  if (program.archived) return badRequest(res, "Program is archived");
+  return program;
 };
 
 const parseTemplateExercises = async (userId, raw, res) => {
@@ -59,11 +71,17 @@ export const listWorkouts = async (req, res) => {
     if (!mongoose.isValidObjectId(req.query.habitId)) return badRequest(res, "Invalid habitId");
     filter.habitId = req.query.habitId;
   }
+  if (req.query.programId) {
+    if (!mongoose.isValidObjectId(req.query.programId)) return badRequest(res, "Invalid programId");
+    filter.programId = req.query.programId;
+  }
   const workouts = await Workout.find(filter).sort({ createdAt: -1 });
   res.json(workouts.map(withCount));
 };
 
 export const createWorkout = async (req, res) => {
+  const program = await resolveProgram(req.user._id, req.body.programId, res);
+  if (!program) return;
   const habit = await resolveTrainingHabit(req.user._id, req.body.habitId, res);
   if (!habit) return;
   const name = typeof req.body.name === "string" ? req.body.name.trim() : "";
@@ -73,6 +91,7 @@ export const createWorkout = async (req, res) => {
   const workout = await Workout.create({
     userId: req.user._id,
     habitId: habit._id,
+    programId: program._id,
     name,
     exercises,
   });
@@ -86,6 +105,11 @@ export const updateWorkout = async (req, res) => {
     const habit = await resolveTrainingHabit(req.user._id, req.body.habitId, res);
     if (!habit) return;
     workout.habitId = habit._id;
+  }
+  if (req.body.programId !== undefined && String(req.body.programId) !== String(workout.programId)) {
+    const program = await resolveProgram(req.user._id, req.body.programId, res);
+    if (!program) return;
+    workout.programId = program._id;
   }
   if (req.body.name !== undefined) {
     const name = typeof req.body.name === "string" ? req.body.name.trim() : "";
