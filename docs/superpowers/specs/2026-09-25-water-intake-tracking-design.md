@@ -1,6 +1,8 @@
 # Design — Contador de água por dia (hábitos com ícone 💧)
 
 > Data: 2026-09-25 · Status: aguardando revisão · Aprovações já dadas: abordagem A (entries + log reconciliado), meta editável (default 4000 ml, mínimo 4000, máximo 8000), migração dos dias antigos, IA lendo ml (agregados + série diária).
+>
+> **Revisão 2026-09-25 (pós-Fase 1.5):** o dia 💧 ganhou **check manual de 1 clique** (`POST`/`DELETE /logs` só marcam/desmarcam — não criam nem apagam ml) e o `reconcile` virou **só-marca** (undo abaixo da meta não desmarca mais; desmarque clicando). `GET /water/today.completed` passa a ser a existência do `HabitLog` do dia. Regras 1/4 da §3 e a §4.1 refletem esta revisão.
 
 ## 1. Objetivo e escopo
 

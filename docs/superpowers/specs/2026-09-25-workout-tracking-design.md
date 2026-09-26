@@ -157,7 +157,7 @@ Formato do log:
 - Erros inline (padrão do app: sem toasts); o 400 de "concluir sem série feita" é traduzido no client (PT-BR).
 
 ### 5.5 Dashboard
-- `WorkoutHabitCard` (padrão do `WaterHabitCard`) para hábitos com `tracksWorkouts`: treinos de hoje (nome + volume), **"Registrar treino"** (modal com templates → `POST /logs` → navega ao treino ativo) ou **"Retomar treino"** (rascunho; o descarte fica na tela do treino e no banner de `/workouts`), link "Ver histórico".
+- `WorkoutHabitCard` (padrão do `WaterHabitCard`) para hábitos com `tracksWorkouts`: treinos de hoje (nome + volume), **"Registrar treino"** (modal com templates → `POST /logs` → navega ao treino ativo) ou **"Retomar treino"** (rascunho; o descarte fica na tela do treino e no banner de `/workouts`), link "Ver histórico" e **check manual de 1 clique** (`POST`/`DELETE /logs`) ao lado do menu — concluir um treino continua marcando sozinho e desmarcar não apaga nenhum treino.
 - `loadAll` inclui `GET /workouts/today` para esses hábitos (como `water/today`).
 
 ### 5.6 Detalhe do hábito e formulário

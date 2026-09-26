@@ -60,7 +60,7 @@ docker compose up -d          # banco (uma vez; fica no ar)
 # terminal 2: cd frontend; npm run dev     → app em :5173 (hot-reload)
 
 # depois de mexer:
-cd backend; npm test           # 120 testes (precisa do Docker no ar)
+cd backend; npm test           # 121 testes (precisa do Docker no ar)
 npm run smoke                  # 51 checks (precisa do servidor no ar)
 
 git add . ; git commit -m "feat: descreva a mudanca"
@@ -73,10 +73,10 @@ git add . ; git commit -m "feat: descreva a mudanca"
 
 | Comando | Cobre | Precisa |
 |---|---|---|
-| `npm test` (backend) | 120 testes: models, auth, habits, logs, água (endpoints, reconciliação, migração), IA (degradação), errorHandler, seed | Docker no ar (usa o banco `ai-habit-tracker-test` no mesmo Mongo da 27018) |
+| `npm test` (backend) | 121 testes: models, auth, habits, logs, água (endpoints, reconciliação, migração), IA (degradação), errorHandler, seed | Docker no ar (usa o banco `ai-habit-tracker-test` no mesmo Mongo da 27018) |
 | `npm run smoke` | Contrato completo contra o servidor real (51 checks, inclui água e IA) | Servidor rodando + Docker |
 | `node scripts/migrate-water.js` (backend) | Backfill único: cria `WaterEntry` de meta para logs antigos de hábitos 💧 (`{ entriesCreated: n }`; idempotente) | Docker no ar (usa o banco de dev) |
-| E2E manual | Registrar/logar, check-off com confete, heatmap, Insights, Stats, chat · água: card no Dashboard (presets, Custom, undo, "Goal reached"), calendário marcando/desmarcando dia 💧, seção Water no detalhe, meta editável no form · treinos: criar exercício/template, iniciar, retomar após refresh, prefill "última vez", concluir (confete + hábito marcado), histórico expansível, card no Dashboard, seção no detalhe, flag no form | Navegador em `localhost:5173` |
+| E2E manual | Registrar/logar, check-off com confete, heatmap, Insights, Stats, chat · água: card no Dashboard (presets, Custom, undo, "Goal reached", **check manual de 1 clique**), calendário marcando/desmarcando dia 💧, seção Water no detalhe, meta editável no form · treinos: criar exercício/template, iniciar, retomar após refresh, prefill "última vez", concluir (confete + hábito marcado), **check manual no card de treino**, histórico expansível, card no Dashboard, seção no detalhe, flag no form | Navegador em `localhost:5173` |
 
 O contrato da API está pinado em `backend/tests/` + na spec (§4.3). O mock antigo do frontend foi removido — se precisar conferir o contrato original, veja `docs/design/spec.md`.
 
@@ -161,6 +161,7 @@ Get-NetTCPConnection -LocalPort 5173 -State Listen | ForEach-Object { Stop-Proce
 15. No máximo **1 rascunho de treino por hábito** (índice único parcial no Mongo); `POST /workouts/logs` com rascunho aberto devolve 409 com `logId`.
 16. Rodar `node scripts/migrate-workout-programs.js` **uma vez** no banco de dev: cria o programa "Meus treinos" e vincula os treinos antigos (idempotente).
 17. Programa é do usuário (sem hábito); cada treino escolhe o hábito. Excluir programa com treinos → 409 (arquivar); excluir hábito preserva o programa.
+18. Água 💧 e treino 🏋️ também têm **check manual de 1 clique** (`POST`/`DELETE /logs`): desmarcar **não** apaga os ml (`WaterEntry`) nem os treinos (`WorkoutLog`). O `reconcile` da água é **só-marca**: atingir a meta marca sozinho; desfazer abaixo da meta não desmarca (desmarque clicando). `GET /water/today` reporta `completed` pela existência do `HabitLog` do dia.
 
 ## 11. Backlog (melhorias adiadas)
 
@@ -171,7 +172,7 @@ Da revisão final do código (nenhuma bloqueia o uso):
 
 **Da feature de água** (review final de 2026-09-25 — nenhum bloqueia o uso):
 
-3. API: `{waterGoal: null}` é aceito e persistido (matemática segura pelo clamp); corrida entre `findOne` e `findOneAndUpdate` no `PUT /habits/:id` pode responder `200 null`; reconcile falho após o PUT deixa o dia defasado até a próxima escrita; `/water/history` aceita hábito não-💧 (série zerada); `?days=0` cai no default 30; o claim do calendário (`POST /logs` em 💧) não é atômico em falha do `WaterEntry.create` e o fallback E11000 pode retornar `null` sob interleave `DELETE /logs` × `POST /water` (aceito/deferido: sem transações no projeto).
+3. API: `{waterGoal: null}` é aceito e persistido (matemática segura pelo clamp); corrida entre `findOne` e `findOneAndUpdate` no `PUT /habits/:id` pode responder `200 null`; reconcile falho após o PUT deixa o dia defasado até a próxima escrita; `/water/history` aceita hábito não-💧 (série zerada); `?days=0` cai no default 30. (O antigo claim do calendário deixou de existir em 2026-09-25: `POST /logs` em 💧 apenas marca o dia.)
 4. Frontend: `waterToday` não é limpo ao excluir/arquivar hábito (chave órfã, inofensiva); Custom e menu sem `aria-label`/`aria-expanded`; Custom inválido é no-op silencioso; o card atualiza depois da resposta (spec pedia update otimista — reavaliar se a latência incomodar).
 5. Testes: migração cobre só a meta default; seed não pina os 3 parciais nem o invariante "parcial sem log"; regex do teste de IA frouxa (`/4200ml/`); `isWaterHabit`/`waterGoal` sem unit test direto; `assert.ok(token)` morto no teste de migração.
 6. Treinos — fases futuras da spec `docs/superpowers/specs/2026-09-25-workout-tracking-design.md`: Fase 3 (Body Metrics), Fase 4 (Activities/cardio + métricas de relógio) e IA lendo treinos.
