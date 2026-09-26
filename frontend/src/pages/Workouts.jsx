@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import api from "../api/axios.js";
-import TemplatesTab from "../components/TemplatesTab.jsx";
+import ProgramsTab from "../components/ProgramsTab.jsx";
 import ExercisesTab from "../components/ExercisesTab.jsx";
 import WorkoutHistoryTab from "../components/WorkoutHistoryTab.jsx";
 import DiscardWorkoutModal from "../components/DiscardWorkoutModal.jsx";
@@ -105,7 +105,7 @@ export default function Workouts() {
           </button>
         ))}
       </div>
-      {tab === "templates" && <TemplatesTab />}
+      {tab === "templates" && <ProgramsTab />}
       {tab === "exercises" && <ExercisesTab />}
       {tab === "history" && <WorkoutHistoryTab />}
 

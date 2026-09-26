@@ -1,0 +1,58 @@
+import { useState } from "react";
+import { Archive, FolderOpen, MoreVertical, Pencil, RotateCcw, Trash2 } from "lucide-react";
+
+export default function ProgramCard({ program, onOpen, onEdit, onArchive, onDelete }) {
+  const [menu, setMenu] = useState(false);
+
+  return (
+    <div className="card p-4 flex flex-col gap-3">
+      <div className="flex items-start justify-between gap-2">
+        <button type="button" className="min-w-0 text-left" onClick={onOpen}>
+          <div className="font-medium truncate">{program.name}</div>
+          <div className="text-xs text-muted mt-0.5">
+            {program.workoutCount} treino{program.workoutCount === 1 ? "" : "s"}
+          </div>
+          {program.archived && (
+            <span className="chip bg-amber-500/15 text-amber-700 dark:text-amber-300 mt-2 inline-flex">
+              Arquivado
+            </span>
+          )}
+        </button>
+        <div className="relative shrink-0">
+          <button className="btn-ghost p-2" onClick={() => setMenu((m) => !m)} aria-label="Opções do programa">
+            <MoreVertical size={16} />
+          </button>
+          {menu && (
+            <>
+              <button className="fixed inset-0 z-40 cursor-default" aria-label="Fechar menu" onClick={() => setMenu(false)} />
+              <div className="absolute right-0 top-10 z-50 glass-strong rounded-xl py-1 w-40 shadow-xl animate-fade-in">
+                <button
+                  className="w-full flex items-center gap-2 px-3 py-2 text-sm text-soft hover:bg-[var(--surface-hover)]"
+                  onClick={() => { setMenu(false); onEdit(); }}
+                >
+                  <Pencil size={14} /> Editar
+                </button>
+                <button
+                  className="w-full flex items-center gap-2 px-3 py-2 text-sm text-soft hover:bg-[var(--surface-hover)]"
+                  onClick={() => { setMenu(false); onArchive(); }}
+                >
+                  {program.archived ? <RotateCcw size={14} /> : <Archive size={14} />}
+                  {program.archived ? "Reativar" : "Arquivar"}
+                </button>
+                <button
+                  className="w-full flex items-center gap-2 px-3 py-2 text-sm text-rose-500 hover:bg-rose-500/10"
+                  onClick={() => { setMenu(false); onDelete(); }}
+                >
+                  <Trash2 size={14} /> Excluir
+                </button>
+              </div>
+            </>
+          )}
+        </div>
+      </div>
+      <button className="btn-secondary w-full" onClick={onOpen}>
+        <FolderOpen size={14} /> Abrir
+      </button>
+    </div>
+  );
+}
