@@ -33,9 +33,9 @@ export default function Dashboard() {
   const [workoutsToday, setWorkoutsToday] = useState({});
   const [startFor, setStartFor] = useState(null);
   const [templates, setTemplates] = useState([]);
+  const [programs, setPrograms] = useState([]);
   const [templatesLoading, setTemplatesLoading] = useState(false);
   const [startError, setStartError] = useState("");
-  const [startingId, setStartingId] = useState(null);
   const [allLogsByHabit, setAllLogsByHabit] = useState({});
   const [loading, setLoading] = useState(true);
 
@@ -54,12 +54,13 @@ export default function Dashboard() {
       const start = week[0].key;
       const end = week[week.length - 1].key;
 
-      const [habitsRes, todayRes, rangeRes, heatRes, waterRes] = await Promise.all([
+      const [habitsRes, todayRes, rangeRes, heatRes, waterRes, programsRes] = await Promise.all([
         api.get("/habits"),
         api.get("/logs/today"),
         api.get("/logs/range", { params: { start, end } }),
         api.get("/logs/heatmap"),
         api.get("/water/today"),
+        api.get("/programs"),
       ]);
 
       setHabits(habitsRes.data);
@@ -69,6 +70,7 @@ export default function Dashboard() {
       setWaterToday(
         Object.fromEntries(waterRes.data.items.map((i) => [String(i.habitId), i.total]))
       );
+      setPrograms(programsRes.data);
 
       const workoutHabits = habitsRes.data.filter((h) => h.tracksWorkouts);
       const workoutPairs = await Promise.all(
@@ -256,21 +258,8 @@ export default function Dashboard() {
     }
   };
 
-  const startWorkout = async (template) => {
-    setStartingId(template._id);
-    setStartError("");
-    try {
-      const res = await api.post("/workouts/logs", { workoutId: template._id });
-      navigate(`/workouts/logs/${res.data.log._id}`);
-    } catch (err) {
-      if (err.response?.status === 409 && err.response.data?.logId) {
-        navigate(`/workouts/logs/${err.response.data.logId}`);
-        return;
-      }
-      setStartError(err.response?.data?.message || "Não foi possível iniciar o treino.");
-    } finally {
-      setStartingId(null);
-    }
+  const openWorkout = (template) => {
+    navigate(`/workouts/templates/${template._id}`);
   };
 
   const saveHabit = async (data) => {
@@ -544,10 +533,10 @@ export default function Dashboard() {
         open={!!startFor}
         onClose={() => { setStartFor(null); setStartError(""); }}
         loading={templatesLoading}
+        programs={programs}
         templates={templates}
         error={startError}
-        startingId={startingId}
-        onStart={startWorkout}
+        onOpen={openWorkout}
       />
     </div>
   );
