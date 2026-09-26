@@ -5,6 +5,7 @@ import ExercisePicker from "./ExercisePicker.jsx";
 export default function WorkoutForm({
   initial,
   habits,
+  programs,
   exercises,
   onCreatedExercise,
   onSubmit,
@@ -13,6 +14,7 @@ export default function WorkoutForm({
   error,
 }) {
   const [name, setName] = useState(initial?.name || "");
+  const [programId, setProgramId] = useState(initial?.programId || programs[0]?._id || "");
   const [habitId, setHabitId] = useState(initial?.habitId || habits[0]?._id || "");
   const [items, setItems] = useState(
     (initial?.exercises || []).map((e) => ({ exerciseId: e.exerciseId, sets: e.sets, reps: e.reps }))
@@ -40,13 +42,14 @@ export default function WorkoutForm({
 
   const handleSubmit = (e) => {
     e.preventDefault();
-    if (!name.trim() || !habitId || !items.length) {
-      setFormError("Informe nome, hábito e pelo menos um exercício.");
+    if (!name.trim() || !programId || !habitId || !items.length) {
+      setFormError("Informe nome, programa, hábito e pelo menos um exercício.");
       return;
     }
     setFormError("");
     onSubmit({
       name: name.trim(),
+      programId,
       habitId,
       exercises: items.map((it) => ({
         exerciseId: it.exerciseId,
@@ -68,6 +71,16 @@ export default function WorkoutForm({
           autoFocus
           required
         />
+      </div>
+      <div>
+        <label className="label">Programa</label>
+        <select className="input" value={programId} onChange={(e) => setProgramId(e.target.value)}>
+          {programs.map((p) => (
+            <option key={p._id} value={p._id}>
+              {p.name}
+            </option>
+          ))}
+        </select>
       </div>
       <div>
         <label className="label">Hábito</label>
