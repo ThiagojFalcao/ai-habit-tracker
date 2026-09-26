@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 import mongoose from "mongoose";
 import { app, request, registerUser, connectTestDb, disconnectTestDb, clearDb } from "./helpers.js";
 import Workout from "../models/Workout.js";
+import Program from "../models/Program.js";
 
 before(connectTestDb);
 after(disconnectTestDb);
@@ -84,4 +85,38 @@ test("DELETE /programs/:id is blocked while workouts exist", async () => {
   const empty = (await request(app).post("/api/programs").set(auth(token)).send({ name: "Vazio" })).body;
   const del = await request(app).delete(`/api/programs/${empty._id}`).set(auth(token));
   assert.equal(del.status, 200);
+});
+
+import { migrateWorkoutPrograms } from "../scripts/migrate-workout-programs.js";
+
+test("migration links legacy workouts once and skips users without them", async () => {
+  const { user } = await registerUser();
+  const habitId = new mongoose.Types.ObjectId();
+  await Workout.collection.insertOne({
+    userId: new mongoose.Types.ObjectId(user._id),
+    habitId,
+    name: "Legado",
+    archived: false,
+    exercises: [],
+    createdAt: new Date(),
+    updatedAt: new Date(),
+  });
+
+  const first = await migrateWorkoutPrograms();
+  const second = await migrateWorkoutPrograms();
+  assert.equal(first.programsCreated, 1);
+  assert.equal(first.workoutsUpdated, 1);
+  assert.equal(second.programsCreated, 0);
+  assert.equal(second.workoutsUpdated, 0);
+
+  const programs = await Program.find({ userId: user._id });
+  assert.equal(programs.length, 1);
+  assert.equal(programs[0].name, "Meus treinos");
+  const linked = await Workout.findOne({ userId: user._id });
+  assert.equal(String(linked.programId), String(programs[0]._id));
+
+  const lone = await registerUser();
+  const third = await migrateWorkoutPrograms();
+  assert.equal(third.programsCreated, 0);
+  assert.equal(await Program.countDocuments({ userId: lone.user._id }), 0);
 });
