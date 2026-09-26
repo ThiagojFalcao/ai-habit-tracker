@@ -122,9 +122,17 @@ const main = async () => {
   r = await req("POST", "/exercises", { token, body: { name: "supino reto", muscleGroup: "Peito" } });
   check("POST /exercises duplicado → 409", r.status === 409);
 
+  r = await req("POST", "/programs", { token, body: { name: "Treino p secar" } });
+  check("POST /programs", r.status === 201 && r.data?._id);
+  const programId = r.data?._id;
+
+  r = await req("POST", "/programs", { token, body: { name: "Mobilidade" } });
+  check("POST /programs (2º)", r.status === 201 && r.data?._id);
+  const secondProgramId = r.data?._id;
+
   r = await req("POST", "/workouts", {
     token,
-    body: { habitId, name: "Peito", exercises: [{ exerciseId, sets: 3, reps: 8 }] },
+    body: { habitId, name: "Peito", programId, exercises: [{ exerciseId, sets: 3, reps: 8 }] },
   });
   check("POST /workouts", r.status === 201 && r.data?.exercises?.length === 1);
   const workoutId = r.data?._id;
@@ -176,6 +184,21 @@ const main = async () => {
 
   r = await req("DELETE", `/workouts/logs/${workoutLogId}`, { token });
   check("DELETE /workouts/logs/:id", r.status === 200 && r.data?.message === "Deleted");
+
+  r = await req("GET", "/programs", { token });
+  check(
+    "GET /programs (workoutCount)",
+    r.status === 200 && r.data.some((p) => p._id === programId && p.workoutCount === 1)
+  );
+
+  r = await req("DELETE", `/programs/${programId}`, { token });
+  check("DELETE /programs com treino → 409", r.status === 409);
+
+  r = await req("PUT", `/workouts/${workoutId}`, { token, body: { programId: secondProgramId } });
+  check("PUT /workouts move de programa", r.status === 200 && r.data?.programId === secondProgramId);
+
+  r = await req("DELETE", `/programs/${programId}`, { token });
+  check("DELETE /programs vazio", r.status === 200 && r.data?.message === "Deleted");
 
   r = await req("GET", "/ai/morning", { token });
   check("GET /ai/morning", r.status === 200 && typeof r.data?.content === "string" && r.data.content.length > 0, detail(r));
