@@ -25,9 +25,6 @@ export const reconcileWaterDay = async (userId, habit, date) => {
       if (err.code !== 11000) throw err;
       log = await HabitLog.findOne({ userId, habitId: habit._id, completedDate: date });
     }
-  } else if (!completed && log) {
-    await HabitLog.deleteOne({ _id: log._id });
-    log = null;
   }
   return { date, total, completed, log };
 };

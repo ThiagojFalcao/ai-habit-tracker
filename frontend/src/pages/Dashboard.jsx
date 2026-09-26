@@ -207,39 +207,17 @@ export default function Dashboard() {
     setWeekLogs(rangeRes.data);
   };
 
-  const syncWaterLog = (habit, completed) => {
-    const today = todayKey();
-    setAllLogsByHabit((prev) => {
-      const list = prev[habit._id] || [];
-      if (list.includes(today) === completed) return prev;
-      const next = { ...prev };
-      next[habit._id] = (
-        completed
-          ? [today, ...list.filter((d) => d !== today)]
-          : list.filter((d) => d !== today)
-      )
-        .sort()
-        .reverse();
-      return next;
-    });
-  };
-
   const addWater = async (habit, amount) => {
     const wasComplete = (waterToday[habit._id] || 0) >= (habit.waterGoal || 4000);
     const res = await api.post("/water", { habitId: habit._id, amount });
     setWaterToday((t) => ({ ...t, [habit._id]: res.data.total }));
-    syncWaterLog(habit, res.data.completed);
-    if (!wasComplete && res.data.completed) {
-      celebrate();
-      await refreshLogs().catch(() => {});
-    }
+    if (!wasComplete && res.data.completed) celebrate();
+    await refreshLogs().catch(() => {});
   };
 
   const undoWater = async (habit) => {
-    const wasComplete = (waterToday[habit._id] || 0) >= (habit.waterGoal || 4000);
     const res = await api.delete("/water/last", { data: { habitId: habit._id } });
     setWaterToday((t) => ({ ...t, [habit._id]: res.data.total }));
-    if (wasComplete !== res.data.completed) syncWaterLog(habit, res.data.completed);
     await refreshLogs().catch(() => {});
   };
 
@@ -423,6 +401,7 @@ export default function Dashboard() {
                   today={workoutsToday[h._id] || { draft: null, completed: [] }}
                   onStart={() => openStart(h)}
                   onResume={() => navigate(`/workouts/logs/${workoutsToday[h._id].draft._id}`)}
+                  onToggle={() => toggle(h)}
                   onOpen={() => navigate(`/habits/${h._id}`)}
                   onEdit={() => { setEditing(h); setFormOpen(true); }}
                   onArchive={() => archiveHabit(h)}
@@ -432,11 +411,13 @@ export default function Dashboard() {
                 <WaterHabitCard
                   key={h._id}
                   habit={h}
+                  completed={completedToday.has(String(h._id))}
                   streak={streaksById[h._id]?.current || 0}
                   total={waterToday[h._id] || 0}
                   goal={h.waterGoal || 4000}
                   onAdd={(amount) => addWater(h, amount)}
                   onUndo={() => undoWater(h)}
+                  onToggle={() => toggle(h)}
                   onOpen={() => navigate(`/habits/${h._id}`)}
                   onEdit={() => { setEditing(h); setFormOpen(true); }}
                   onArchive={() => archiveHabit(h)}

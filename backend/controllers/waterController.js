@@ -90,12 +90,19 @@ export const todayWater = async (req, res) => {
   const waterHabits = habits.filter(isWaterHabit);
   const totals = await waterTotalsSince(req.user._id, date);
   const byHabit = new Map(totals.filter((t) => t.date === date).map((t) => [t.habitId, t.total]));
+  const logs = await HabitLog.find({
+    userId: req.user._id,
+    habitId: { $in: waterHabits.map((h) => h._id) },
+    completedDate: date,
+  });
+  const logged = new Set(logs.map((l) => String(l.habitId)));
   res.json({
     date,
-    items: waterHabits.map((h) => {
-      const total = byHabit.get(String(h._id)) || 0;
-      const goal = waterGoal(h);
-      return { habitId: h._id, total, goal, completed: total >= goal };
-    }),
+    items: waterHabits.map((h) => ({
+      habitId: h._id,
+      total: byHabit.get(String(h._id)) || 0,
+      goal: waterGoal(h),
+      completed: logged.has(String(h._id)),
+    })),
   });
 };

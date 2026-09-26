@@ -95,7 +95,7 @@ test("concurrent adds crossing the goal create a single log", async () => {
   assert.equal(today.body.items[0].completed, true);
 });
 
-test("DELETE /water/last removes the most recent entry and un-completes below the goal", async () => {
+test("DELETE /water/last removes the most recent entry and keeps the day marked", async () => {
   const { token } = await registerUser();
   const habit = await createHabit(token);
   await request(app).post("/api/water").set(auth(token)).send({ habitId: habit._id, amount: 1500 });
@@ -108,10 +108,10 @@ test("DELETE /water/last removes the most recent entry and un-completes below th
   assert.equal(undo.body.completed, false);
 
   const logs = await request(app).get("/api/logs/today").set(auth(token));
-  assert.equal(logs.body.length, 0);
+  assert.equal(logs.body.length, 1);
 });
 
-test("undoing a goal-sized entry drops the day to zero", async () => {
+test("undoing a goal-sized entry drops the day to zero without unmarking", async () => {
   const { token } = await registerUser();
   const habit = await createHabit(token);
   await WaterEntry.create({
@@ -130,7 +130,7 @@ test("undoing a goal-sized entry drops the day to zero", async () => {
   assert.equal(undo.body.completed, false);
   assert.equal(undo.body.removed, true);
   const logs = await request(app).get("/api/logs/today").set(auth(token));
-  assert.equal(logs.body.length, 0);
+  assert.equal(logs.body.length, 1);
 });
 
 test("DELETE /water/last without entries leaves an existing log untouched", async () => {
@@ -182,7 +182,7 @@ test("GET /water/history validates days and ownership", async () => {
   assert.equal(foreign.status, 404);
 });
 
-test("POST /logs on a water habit creates a goal-sized entry and is idempotent", async () => {
+test("POST /logs on a water habit marks the day without adding water", async () => {
   const { token } = await registerUser();
   const habit = await createHabit(token);
   const first = await request(app).post("/api/logs").set(auth(token)).send({ habitId: habit._id });
@@ -191,22 +191,24 @@ test("POST /logs on a water habit creates a goal-sized entry and is idempotent",
   assert.equal(second.body._id, first.body._id);
 
   const today = await request(app).get("/api/water/today").set(auth(token));
-  assert.equal(today.body.items[0].total, 4000);
+  assert.equal(today.body.items[0].total, 0);
   assert.equal(today.body.items[0].completed, true);
+  assert.equal(await WaterEntry.countDocuments({ habitId: habit._id }), 0);
 });
 
-test("DELETE /logs on a water habit clears entries and completion", async () => {
+test("DELETE /logs on a water habit unmarks the day and keeps the water entries", async () => {
   const { token } = await registerUser();
   const habit = await createHabit(token);
   await request(app).post("/api/water").set(auth(token)).send({ habitId: habit._id, amount: 4000 });
   const del = await request(app).delete("/api/logs").set(auth(token)).send({ habitId: habit._id });
   assert.equal(del.status, 200);
   const today = await request(app).get("/api/water/today").set(auth(token));
-  assert.equal(today.body.items[0].total, 0);
+  assert.equal(today.body.items[0].total, 4000);
   assert.equal(today.body.items[0].completed, false);
+  assert.equal(await WaterEntry.countDocuments({ habitId: habit._id }), 1);
 });
 
-test("concurrent POST /logs creates a single goal-sized entry", async () => {
+test("concurrent POST /logs on a water habit creates a single mark and no entries", async () => {
   const { token } = await registerUser();
   const habit = await createHabit(token);
   const [a, b] = await Promise.all([
@@ -216,24 +218,41 @@ test("concurrent POST /logs creates a single goal-sized entry", async () => {
   assert.equal(a.status, 201);
   assert.equal(b.status, 201);
   const today = await request(app).get("/api/water/today").set(auth(token));
-  assert.equal(today.body.items[0].total, 4000);
+  assert.equal(today.body.items[0].total, 0);
+  assert.equal(today.body.items[0].completed, true);
+  assert.equal(await WaterEntry.countDocuments({ habitId: habit._id }), 0);
   const logs = await request(app).get("/api/logs/today").set(auth(token));
   assert.equal(logs.body.length, 1);
 });
 
-test("undo removes the calendar's goal-sized entry", async () => {
+test("manual mark survives an undo with no entries", async () => {
   const { token } = await registerUser();
   const habit = await createHabit(token);
   await request(app).post("/api/logs").set(auth(token)).send({ habitId: habit._id });
   const undo = await request(app).delete("/api/water/last").set(auth(token)).send({ habitId: habit._id });
-  assert.equal(undo.body.removed, true);
+  assert.equal(undo.body.removed, false);
   assert.equal(undo.body.total, 0);
-  assert.equal(undo.body.completed, false);
   const logs = await request(app).get("/api/logs/today").set(auth(token));
-  assert.equal(logs.body.length, 0);
+  assert.equal(logs.body.length, 1);
 });
 
-test("changing the water goal reconciles today only", async () => {
+test("reconcile is mark-only: adding water below the goal keeps a manual mark", async () => {
+  const { token } = await registerUser();
+  const habit = await createHabit(token);
+  await request(app).post("/api/logs").set(auth(token)).send({ habitId: habit._id });
+  await request(app).post("/api/water").set(auth(token)).send({ habitId: habit._id, amount: 1000 });
+
+  const logs = await request(app).get("/api/logs/today").set(auth(token));
+  assert.equal(logs.body.length, 1);
+
+  const del = await request(app).delete("/api/logs").set(auth(token)).send({ habitId: habit._id });
+  assert.equal(del.status, 200);
+  const after = await request(app).get("/api/logs/today").set(auth(token));
+  assert.equal(after.body.length, 0);
+  assert.equal(await WaterEntry.countDocuments({ habitId: habit._id }), 1);
+});
+
+test("changing the water goal reconciles today only (never unmarks)", async () => {
   const { token } = await registerUser();
   const habit = await createHabit(token);
   const yesterday = toDateKey(subDays(new Date(), 1));
@@ -247,7 +266,7 @@ test("changing the water goal reconciles today only", async () => {
   const logs = await request(app)
     .get(`/api/logs/range?start=${yesterday}&end=${toDateKey()}`)
     .set(auth(token));
-  assert.deepEqual(logs.body.map((l) => l.completedDate), [yesterday]);
+  assert.deepEqual(logs.body.map((l) => l.completedDate), [yesterday, toDateKey()]);
 
   const invalid = await request(app).put(`/api/habits/${habit._id}`).set(auth(token)).send({ waterGoal: 3000 });
   assert.equal(invalid.status, 400);

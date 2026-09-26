@@ -4,8 +4,8 @@ import { createPortal } from "react-dom";
 import { WATER } from "../utils/constants.js";
 
 export default function WaterHabitCard({
-  habit, streak = 0, total = 0, goal = WATER.goal,
-  onAdd, onUndo, onOpen, onEdit, onArchive, onDelete,
+  habit, completed = false, streak = 0, total = 0, goal = WATER.goal,
+  onAdd, onUndo, onToggle, onOpen, onEdit, onArchive, onDelete,
 }) {
   const [pending, setPending] = useState(false);
   const [lastAdded, setLastAdded] = useState(null);
@@ -40,7 +40,7 @@ export default function WaterHabitCard({
   }, [menu]);
 
   const pct = goal ? Math.min(100, Math.round((total / goal) * 100)) : 0;
-  const completed = total >= goal;
+  const goalReached = total >= goal;
 
   const add = async (amount) => {
     if (!amount || amount < 1 || amount > WATER.maxAmount || pending) return;
@@ -92,7 +92,7 @@ export default function WaterHabitCard({
             <span className="chip">{habit.category}</span>
           </div>
           <div className="text-xs text-muted mt-0.5">
-            {completed ? "Goal reached" : `Goal ${goal} ${WATER.unit}/day`}
+            {goalReached ? "Goal reached" : `Goal ${goal} ${WATER.unit}/day`}
           </div>
         </div>
         <div className="hidden sm:flex items-center gap-1 text-sm text-soft">
@@ -154,7 +154,20 @@ export default function WaterHabitCard({
               document.body
             )}
         </div>
-        {completed && <Check size={20} strokeWidth={3} className="text-brand-500 shrink-0" />}
+        <button
+          onClick={(e) => {
+            e.stopPropagation();
+            onToggle();
+          }}
+          className={`shrink-0 w-11 h-11 rounded-full flex items-center justify-center transition ${
+            completed
+              ? "bg-gradient-to-br from-brand-500 to-brand-700 text-white shadow-lg shadow-brand-500/40 animate-pop"
+              : "bg-brand-100 border-2 border-border-brand-400 text-brand-400 hover:border-brand-400"
+          }`}
+          aria-label={completed ? "Mark incomplete" : "Mark complete"}
+        >
+          <Check size={20} strokeWidth={3} />
+        </button>
       </div>
 
       <div className="mt-3" onClick={(e) => e.stopPropagation()}>

@@ -8,6 +8,7 @@ export default function WorkoutHabitCard({
   today = { draft: null, completed: [] },
   onStart,
   onResume,
+  onToggle,
   onOpen,
   onEdit,
   onArchive,
@@ -75,7 +76,20 @@ export default function WorkoutHabitCard({
             </>
           )}
         </div>
-        {completed && <Check size={20} strokeWidth={3} className="text-brand-500 shrink-0" />}
+        <button
+          onClick={(e) => {
+            e.stopPropagation();
+            onToggle();
+          }}
+          className={`shrink-0 w-11 h-11 rounded-full flex items-center justify-center transition ${
+            completed
+              ? "bg-gradient-to-br from-brand-500 to-brand-700 text-white shadow-lg shadow-brand-500/40 animate-pop"
+              : "bg-brand-100 border-2 border-border-brand-400 text-brand-400 hover:border-brand-400"
+          }`}
+          aria-label={completed ? "Mark incomplete" : "Mark complete"}
+        >
+          <Check size={20} strokeWidth={3} />
+        </button>
       </div>
 
       <div className="mt-3 space-y-2" onClick={(e) => e.stopPropagation()}>
