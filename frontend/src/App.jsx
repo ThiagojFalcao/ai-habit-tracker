@@ -10,6 +10,7 @@ import Insights from "./pages/Insights.jsx";
 import Stats from "./pages/Stats.jsx";
 import Workouts from "./pages/Workouts.jsx";
 import ProgramDetail from "./pages/ProgramDetail.jsx";
+import WorkoutDetail from "./pages/WorkoutDetail.jsx";
 import ActiveWorkout from "./pages/ActiveWorkout.jsx";
 import AppLayout from "./components/AppLayout.jsx";
 import ProtectedRoute from "./components/ProtectedRoute.jsx";
@@ -36,6 +37,7 @@ export default function App() {
         <Route path="/stats" element={<Stats />} />
         <Route path="/workouts" element={<Workouts />} />
         <Route path="/workouts/programs/:programId" element={<ProgramDetail />} />
+        <Route path="/workouts/templates/:workoutId" element={<WorkoutDetail />} />
         <Route path="/workouts/logs/:logId" element={<ActiveWorkout />} />
       </Route>
 
