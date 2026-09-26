@@ -125,6 +125,7 @@ Get-NetTCPConnection -LocalPort 5173 -State Listen | ForEach-Object { Stop-Proce
 ```
 
 - **`npm test` com arquivos em paralelo dá `ECONNRESET`** — por isso o script usa `--test-concurrency=1`. Não remova.
+- **`ECONNRESET` intermitente mesmo com `--test-concurrency=1`** (observado ~2 em 4 execuções em 2026-09-25, sob carga do Docker): rerodar costuma passar e reproduz no baseline sem mudanças — não é falha do código. Se persistir, reinicie o Docker (`docker compose restart`).
 - **Acentos aparecem como `�` no console do PowerShell** — é só encoding do terminal; os dados estão corretos (confira no navegador).
 - Testes e seed usam bancos separados no mesmo Mongo (`ai-habit-tracker-test` vs `ai-habit-tracker`) — não se misturam.
 - **CSS quebrado (app sem estilo) depois de operações git grandes** (rebase/checkout que reescrevem muitos arquivos) com o Vite rodando: o cache dele fica inconsistente. Conserto: parar o Vite, apagar `frontend/.vite` e `frontend/node_modules/.vite`, subir de novo e dar **Ctrl+Shift+R** no navegador.
