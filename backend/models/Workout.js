@@ -14,6 +14,7 @@ const workoutSchema = new mongoose.Schema(
   {
     userId: { type: mongoose.Schema.Types.ObjectId, ref: "User", required: true },
     habitId: { type: mongoose.Schema.Types.ObjectId, ref: "Habit", required: true },
+    programId: { type: mongoose.Schema.Types.ObjectId, ref: "Program", required: true },
     name: { type: String, required: true, trim: true, maxlength: 60 },
     archived: { type: Boolean, default: false },
     exercises: {
@@ -28,6 +29,7 @@ const workoutSchema = new mongoose.Schema(
 );
 
 workoutSchema.index({ userId: 1, habitId: 1 });
+workoutSchema.index({ userId: 1, programId: 1 });
 workoutSchema.index({ userId: 1, archived: 1 });
 
 export default mongoose.model("Workout", workoutSchema);
