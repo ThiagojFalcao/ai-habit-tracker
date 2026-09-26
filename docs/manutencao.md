@@ -175,7 +175,7 @@ Da revisão final do código (nenhuma bloqueia o uso):
 4. Frontend: `waterToday` não é limpo ao excluir/arquivar hábito (chave órfã, inofensiva); Custom e menu sem `aria-label`/`aria-expanded`; Custom inválido é no-op silencioso; o card atualiza depois da resposta (spec pedia update otimista — reavaliar se a latência incomodar).
 5. Testes: migração cobre só a meta default; seed não pina os 3 parciais nem o invariante "parcial sem log"; regex do teste de IA frouxa (`/4200ml/`); `isWaterHabit`/`waterGoal` sem unit test direto; `assert.ok(token)` morto no teste de migração.
 6. Treinos — fases futuras da spec `docs/superpowers/specs/2026-09-25-workout-tracking-design.md`: Fase 3 (Body Metrics), Fase 4 (Activities/cardio + métricas de relógio) e IA lendo treinos.
-7. Treinos — Fase 1.5 entregue (programas + iniciar dentro do treino). Falta da Fase 2 (Progress): filtrar/analisar histórico por programa, PRs e progressão.
+7. Treinos — Fase 1.5 entregue (programas + iniciar dentro do treino). Falta da Fase 2 (Progress): filtrar/analisar histórico por programa, PRs, volume trend e progressão.
 
 **Concluídos em 2026-09-25** (itens 1–6 da lista antiga):
 
