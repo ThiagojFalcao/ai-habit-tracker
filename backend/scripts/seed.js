@@ -8,6 +8,7 @@ import AIInsight from "../models/AIInsight.js";
 import WaterEntry from "../models/WaterEntry.js";
 import Exercise from "../models/Exercise.js";
 import Workout from "../models/Workout.js";
+import Program from "../models/Program.js";
 import WorkoutLog from "../models/WorkoutLog.js";
 import { toDateKey } from "../utils/dateHelpers.js";
 import { waterGoal } from "../utils/water.js";
@@ -42,6 +43,7 @@ export const runSeed = async (uri = process.env.MONGO_URI) => {
     Exercise.deleteMany({}),
     Workout.deleteMany({}),
     WorkoutLog.deleteMany({}),
+    Program.deleteMany({}),
   ]);
 
   const user = await User.create({ name: "Alex Rivera", email: "alex@example.com", password: "password123" });
@@ -101,6 +103,8 @@ export const runSeed = async (uri = process.env.MONGO_URI) => {
     { name: "Remada Curvada", muscleGroup: "Costas" },
     { name: "Puxada Alta", muscleGroup: "Costas" },
     { name: "Agachamento Livre", muscleGroup: "Pernas" },
+    { name: "Mobilidade de ombro", muscleGroup: "Outro" },
+    { name: "Mobilidade de quadril", muscleGroup: "Outro" },
   ];
   const exercises = [];
   for (const def of exerciseDefs) {
@@ -108,11 +112,20 @@ export const runSeed = async (uri = process.env.MONGO_URI) => {
       await Exercise.create({ ...def, userId: user._id, nameKey: def.name.toLowerCase() })
     );
   }
-  const [supino, supinoInclinado, crucifixo, remada, puxada, agachamento] = exercises;
+  const [supino, supinoInclinado, crucifixo, remada, puxada, agachamento, mobOmbro, mobQuadril] = exercises;
+
+  const programs = await Program.insertMany([
+    { userId: user._id, name: "Treino p secar" },
+    { userId: user._id, name: "Força" },
+    { userId: user._id, name: "Mobilidade" },
+  ]);
+  const [cutting, strength, mobility] = programs;
+
   const workouts = await Workout.insertMany([
     {
       userId: user._id,
       habitId: trainingHabit._id,
+      programId: cutting._id,
       name: "Peito",
       exercises: [
         { exerciseId: supino._id, sets: 4, reps: 8 },
@@ -123,6 +136,7 @@ export const runSeed = async (uri = process.env.MONGO_URI) => {
     {
       userId: user._id,
       habitId: trainingHabit._id,
+      programId: strength._id,
       name: "Costas & Pernas",
       exercises: [
         { exerciseId: remada._id, sets: 4, reps: 8 },
@@ -130,14 +144,25 @@ export const runSeed = async (uri = process.env.MONGO_URI) => {
         { exerciseId: agachamento._id, sets: 4, reps: 6 },
       ],
     },
+    {
+      userId: user._id,
+      habitId: trainingHabit._id,
+      programId: mobility._id,
+      name: "Mobilidade",
+      exercises: [
+        { exerciseId: mobOmbro._id, sets: 3, reps: 12 },
+        { exerciseId: mobQuadril._id, sets: 3, reps: 12 },
+      ],
+    },
   ]);
+  const logWorkouts = workouts.filter((w) => w.name !== "Mobilidade");
 
   const workoutLogs = [];
   let templateIndex = 0;
   for (let i = 27; i >= 0; i--) {
     if (rng() >= 0.4) continue;
     const date = toDateKey(subDays(today, i));
-    const template = workouts[templateIndex % workouts.length];
+    const template = logWorkouts[templateIndex % logWorkouts.length];
     templateIndex += 1;
     const week = Math.floor((27 - i) / 7);
     const base = 30 + week * 2.5;
@@ -193,6 +218,7 @@ export const runSeed = async (uri = process.env.MONGO_URI) => {
     logs: storedLogs.length,
     waterEntries: waterEntries.length,
     workouts: workouts.length,
+    programs: programs.length,
     workoutLogs: workoutLogs.length,
     recoveryReady: "Morning run",
   };

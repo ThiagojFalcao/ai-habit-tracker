@@ -9,6 +9,7 @@ import HabitLog from "../models/HabitLog.js";
 import WaterEntry from "../models/WaterEntry.js";
 import Exercise from "../models/Exercise.js";
 import Workout from "../models/Workout.js";
+import Program from "../models/Program.js";
 import WorkoutLog from "../models/WorkoutLog.js";
 import { calcStreak, toDateKey, lastNDays } from "../utils/dateHelpers.js";
 
@@ -44,8 +45,14 @@ test("seed creates demo user, 8 habits and rich deterministic logs", async () =>
   const partial = await WaterEntry.findOne({ amount: { $lt: 4000 } });
   assert.ok(partial, "seed deve ter ao menos um dia parcial de água");
 
-  assert.equal(await Exercise.countDocuments(), 6);
-  assert.equal(await Workout.countDocuments(), 2);
+  assert.equal(await Exercise.countDocuments(), 8);
+  assert.equal(await Workout.countDocuments(), 3);
+  assert.equal(await Program.countDocuments(), 3);
+  assert.equal(
+    await Workout.countDocuments({ programId: { $exists: true } }),
+    3,
+    "todo treino do seed tem programa"
+  );
   const workoutLogs = await WorkoutLog.countDocuments({ status: "completed" });
   assert.ok(workoutLogs >= 7 && workoutLogs <= 18, `workoutLogs=${workoutLogs}`);
   assert.ok(
