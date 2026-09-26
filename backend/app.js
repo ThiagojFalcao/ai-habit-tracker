@@ -6,6 +6,7 @@ import logRoutes from "./routes/logs.js";
 import waterRoutes from "./routes/water.js";
 import exerciseRoutes from "./routes/exercises.js";
 import workoutRoutes from "./routes/workouts.js";
+import programRoutes from "./routes/programs.js";
 import aiRoutes from "./routes/ai.js";
 import { notFound, errorHandler } from "./middleware/errorHandler.js";
 
@@ -32,6 +33,7 @@ app.use("/api/logs", logRoutes);
 app.use("/api/water", waterRoutes);
 app.use("/api/exercises", exerciseRoutes);
 app.use("/api/workouts", workoutRoutes);
+app.use("/api/programs", programRoutes);
 app.use("/api/ai", aiRoutes);
 
 app.use(notFound);
