@@ -43,7 +43,7 @@ navegador → Vite (5173) → axios (Bearer JWT) → Express (8000) → Mongoose
 | Nova rota de API | `backend/models` → `backend/controllers` → `backend/routes` → montar em `backend/app.js` → adicionar teste em `backend/tests/` |
 | Regra de streak / datas | `backend/utils/dateHelpers.js` — **espelhado** em `frontend/src/utils/dateHelpers.js` (o frontend calcula streaks localmente); mudou um, confira o outro |
 | Água (hábito com 💧) | backend: `utils/water.js`, `utils/waterService.js`, `models/WaterEntry.js`, `controllers/waterController.js`, `routes/water.js`, `scripts/migrate-water.js` · frontend: `components/WaterHabitCard.jsx`, `WaterIntakeChart.jsx`, `utils/constants.js` (`WATER` espelhado) |
-| Treinos (workouts) | backend: `utils/workout.js`, `utils/workoutService.js`, `models/Exercise.js`, `models/Workout.js`, `models/WorkoutLog.js`, `controllers/exerciseController.js`, `controllers/workoutController.js`, `controllers/workoutLogController.js`, `routes/exercises.js`, `routes/workouts.js` · frontend: `pages/Workouts.jsx`, `pages/ActiveWorkout.jsx`, `components/TemplatesTab.jsx`, `components/ExercisesTab.jsx`, `components/WorkoutHistoryTab.jsx`, `components/WorkoutCard.jsx`, `components/WorkoutForm.jsx`, `components/ExercisePicker.jsx`, `components/ExerciseForm.jsx`, `components/WorkoutHabitCard.jsx`, `components/StartWorkoutModal.jsx`, `components/DiscardWorkoutModal.jsx`, `utils/constants.js` (`MUSCLE_GROUPS`) |
+| Treinos (workouts) | backend: `utils/workout.js`, `utils/workoutService.js`, `models/Exercise.js`, `models/Workout.js`, `models/WorkoutLog.js`, `models/Program.js`, `controllers/exerciseController.js`, `controllers/workoutController.js`, `controllers/workoutLogController.js`, `controllers/programController.js`, `routes/exercises.js`, `routes/workouts.js`, `routes/programs.js`, `scripts/migrate-workout-programs.js` · frontend: `pages/Workouts.jsx`, `pages/ActiveWorkout.jsx`, `pages/ProgramDetail.jsx`, `pages/WorkoutDetail.jsx`, `components/ProgramsTab.jsx`, `components/ProgramCard.jsx`, `components/ProgramForm.jsx`, `components/ExercisesTab.jsx`, `components/WorkoutHistoryTab.jsx`, `components/WorkoutCard.jsx`, `components/WorkoutForm.jsx`, `components/ExercisePicker.jsx`, `components/ExerciseForm.jsx`, `components/WorkoutHabitCard.jsx`, `components/StartWorkoutModal.jsx`, `components/DiscardWorkoutModal.jsx`, `utils/constants.js` (`MUSCLE_GROUPS`) |
 | Prompt / modelo de IA | prompts: `backend/utils/aiService.js` · modelo: `backend/.env` (`GEMINI_MODEL`) — reiniciar o backend depois |
 | O que a IA "vê" | `backend/controllers/aiController.js` (`buildHabitContext` monta o contexto por feature) |
 | Dados demo | `backend/scripts/seed.js` — ⚠️ **`npm run seed` apaga TODOS os dados** |
@@ -60,8 +60,8 @@ docker compose up -d          # banco (uma vez; fica no ar)
 # terminal 2: cd frontend; npm run dev     → app em :5173 (hot-reload)
 
 # depois de mexer:
-cd backend; npm test           # 109 testes (precisa do Docker no ar)
-npm run smoke                  # 45 checks (precisa do servidor no ar)
+cd backend; npm test           # 120 testes (precisa do Docker no ar)
+npm run smoke                  # 51 checks (precisa do servidor no ar)
 
 git add . ; git commit -m "feat: descreva a mudanca"
 ```
@@ -73,8 +73,8 @@ git add . ; git commit -m "feat: descreva a mudanca"
 
 | Comando | Cobre | Precisa |
 |---|---|---|
-| `npm test` (backend) | 109 testes: models, auth, habits, logs, água (endpoints, reconciliação, migração), IA (degradação), errorHandler, seed | Docker no ar (usa o banco `ai-habit-tracker-test` no mesmo Mongo da 27018) |
-| `npm run smoke` | Contrato completo contra o servidor real (45 checks, inclui água e IA) | Servidor rodando + Docker |
+| `npm test` (backend) | 120 testes: models, auth, habits, logs, água (endpoints, reconciliação, migração), IA (degradação), errorHandler, seed | Docker no ar (usa o banco `ai-habit-tracker-test` no mesmo Mongo da 27018) |
+| `npm run smoke` | Contrato completo contra o servidor real (51 checks, inclui água e IA) | Servidor rodando + Docker |
 | `node scripts/migrate-water.js` (backend) | Backfill único: cria `WaterEntry` de meta para logs antigos de hábitos 💧 (`{ entriesCreated: n }`; idempotente) | Docker no ar (usa o banco de dev) |
 | E2E manual | Registrar/logar, check-off com confete, heatmap, Insights, Stats, chat · água: card no Dashboard (presets, Custom, undo, "Goal reached"), calendário marcando/desmarcando dia 💧, seção Water no detalhe, meta editável no form · treinos: criar exercício/template, iniciar, retomar após refresh, prefill "última vez", concluir (confete + hábito marcado), histórico expansível, card no Dashboard, seção no detalhe, flag no form | Navegador em `localhost:5173` |
 
@@ -159,6 +159,8 @@ Get-NetTCPConnection -LocalPort 5173 -State Listen | ForEach-Object { Stop-Proce
 13. A flag `tracksWorkouts` (não o ícone) decide se o hábito tem treinos; concluir um treino marca o `HabitLog` do dia, mas apagar/reabrir o treino **não** desmarca.
 14. `MUSCLE_GROUPS` é espelhado no frontend (`frontend/src/utils/constants.js`) — mudou no backend (`backend/utils/workout.js`), confira o outro.
 15. No máximo **1 rascunho de treino por hábito** (índice único parcial no Mongo); `POST /workouts/logs` com rascunho aberto devolve 409 com `logId`.
+16. Rodar `node scripts/migrate-workout-programs.js` **uma vez** no banco de dev: cria o programa "Meus treinos" e vincula os treinos antigos (idempotente).
+17. Programa é do usuário (sem hábito); cada treino escolhe o hábito. Excluir programa com treinos → 409 (arquivar); excluir hábito preserva o programa.
 
 ## 11. Backlog (melhorias adiadas)
 
@@ -172,7 +174,8 @@ Da revisão final do código (nenhuma bloqueia o uso):
 3. API: `{waterGoal: null}` é aceito e persistido (matemática segura pelo clamp); corrida entre `findOne` e `findOneAndUpdate` no `PUT /habits/:id` pode responder `200 null`; reconcile falho após o PUT deixa o dia defasado até a próxima escrita; `/water/history` aceita hábito não-💧 (série zerada); `?days=0` cai no default 30; o claim do calendário (`POST /logs` em 💧) não é atômico em falha do `WaterEntry.create` e o fallback E11000 pode retornar `null` sob interleave `DELETE /logs` × `POST /water` (aceito/deferido: sem transações no projeto).
 4. Frontend: `waterToday` não é limpo ao excluir/arquivar hábito (chave órfã, inofensiva); Custom e menu sem `aria-label`/`aria-expanded`; Custom inválido é no-op silencioso; o card atualiza depois da resposta (spec pedia update otimista — reavaliar se a latência incomodar).
 5. Testes: migração cobre só a meta default; seed não pina os 3 parciais nem o invariante "parcial sem log"; regex do teste de IA frouxa (`/4200ml/`); `isWaterHabit`/`waterGoal` sem unit test direto; `assert.ok(token)` morto no teste de migração.
-6. Treinos — fases futuras da spec `docs/superpowers/specs/2026-09-25-workout-tracking-design.md`: Fase 2 (Progress: PRs, volume trend, progressão por exercício), Fase 3 (Body Metrics), Fase 4 (Activities/cardio + métricas de relógio) e IA lendo treinos.
+6. Treinos — fases futuras da spec `docs/superpowers/specs/2026-09-25-workout-tracking-design.md`: Fase 3 (Body Metrics), Fase 4 (Activities/cardio + métricas de relógio) e IA lendo treinos.
+7. Treinos — Fase 1.5 entregue (programas + iniciar dentro do treino). Falta da Fase 2 (Progress): filtrar/analisar histórico por programa, PRs e progressão.
 
 **Concluídos em 2026-09-25** (itens 1–6 da lista antiga):
 
